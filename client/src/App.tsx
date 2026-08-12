@@ -22,7 +22,7 @@ function App() {
     try {
       const res = await fetch('/api/health')
       if (!res.ok) {
-        throw new Error(`HTTP error! Status: ${res.status}`)
+        throw new Error(`Unable to connect to the server. Please try again later. Status: ${res.status}`)
       }
       const data: HealthResponse = await res.json()
       setHealthData(data)
