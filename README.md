@@ -2,7 +2,7 @@
 
 TokTickIT (ตอกติ๊กกิต) คือแอปพลิเคชัน IT Service Desk สำหรับแจ้งและติดตามคำขอด้าน Account and Access, Hardware, Software และ Network
 
-โปรเจกต์นี้เป็นส่วนหนึ่งของวิชา CPE 334 Introduction to Software Engineering in the Age of AI Agents 
+โปรเจกต์นี้เป็นส่วนหนึ่งของวิชา CPE 334 Introduction to Software Engineering in the Age of AI Agents
 
 ## เทคโนโลยีที่ใช้
 
@@ -27,14 +27,19 @@ npm --version
 ```
 
 ## โครงสร้างโปรเจกต์
+
+```
 toktickit/
-├── client/ # React frontend
-├── server/ # Express backend + Prisma
-│ ├── prisma/ # Schema และ migration files
-│ ├── src/ # โค้ด backend
-│ └── tests/ # ไฟล์ทดสอบ
-├── docs/ # เอกสารประกอบ
+├── client/          # React frontend
+│   ├── src/         # โค้ด frontend
+│   └── test/        # ไฟล์ทดสอบ frontend
+├── server/          # Express backend + Prisma
+│   ├── prisma/      # Schema และ migration files
+│   ├── src/         # โค้ด backend
+│   └── test/        # ไฟล์ทดสอบ backend
+├── docs/            # เอกสารประกอบ
 └── README.md
+```
 
 ## วิธีติดตั้งและรัน
 
