@@ -131,11 +131,3 @@ npm test
 cd client
 npm test
 ```
-
-## ปัญหาที่มักเจอ
-
-**เชื่อมต่อฐานข้อมูลไม่ได้ (Error P1001):** เช็คว่า PostgreSQL รันอยู่จริงหรือไม่ และ `DATABASE_URL` ใน `.env` ตั้งค่า port/username/password ถูกต้อง
-
-**Backend รันไม่ขึ้น:** เช็คว่า `npm install` ผ่านครบทุก dependency แล้ว และไม่มี process อื่นใช้ port 3001 อยู่ก่อน
-
-**Frontend เรียก API ไม่ได้:** ต้องเปิด backend (`npm run dev` ใน `server/`) ทิ้งไว้ก่อนเปิด frontend เสมอ

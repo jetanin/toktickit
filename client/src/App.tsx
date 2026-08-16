@@ -56,7 +56,7 @@ function App() {
       <section id="center">
 
         <div className="d-flex flex-column align-items-center gap-2 mb-3">
-          <h1>TokTickIT</h1>
+          <h1>TokTickIT IT Service Desk</h1>
           <button
             type="button"
             className="btn btn-primary"
