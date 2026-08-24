@@ -99,6 +99,7 @@ Minimum seed data for development and testing:
 - `GET /api/tickets`: Retrieve a paginated, searchable, filterable list of tickets owned by the selected Requester.
 - `GET /api/tickets/:id`: Retrieve details of a specific ticket owned by the selected Requester.
 - `POST /api/tickets/:id/attachments`: Upload an attachment.
+- `GET /api/attachments/:id`: Retrieve attachment metadata (not the file content itself).
 - `GET /api/attachments/:id/download`: Download an active attachment.
 - `PATCH /api/attachments/:id/remove`: Soft-remove an attachment (requires reason payload).
 

@@ -50,6 +50,9 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | API-29 | API | Supertest | AC-07 | PATCH /api/attachments/:id/remove with valid reason returns 200 and marks attachment as removed | `server/test/lab-02/attachments.api.test.ts` | Planned |
 | API-30 | API | Supertest | AC-07 | PATCH /api/attachments/:id/remove without reason returns 400 | `server/test/lab-02/attachments.api.test.ts` | Planned |
 | API-31 | API | Supertest | AC-03 | PATCH /api/attachments/:id/remove on another requester's attachment returns 403 | `server/test/lab-02/attachments.api.test.ts` | Planned |
+| **API Failure State (API)** | | | | | | |
+| API-32 | API | Supertest | AC-11 | When a simulated 500 error is returned, the API response body matches `{ "error": "Internal Server Error" }` | `server/test/lab-02/error-state.api.test.ts` | Planned |
+| API-33 | API | Supertest | AC-11 | GET /api/tickets with a DB connection error returns 500 and does not leak stack traces or internal details | `server/test/lab-02/error-state.api.test.ts` | Planned |
 | **UI — Requester Selector** | | | | | | |
 | UI-01 | UI | Vitest | AC-04 | Requester Selection screen renders only active requesters from API | `client/test/lab-02/RequesterSelector.test.tsx` | Planned |
 | UI-02 | UI | Vitest | AC-02 | If no requester is in localStorage, navigating to My Tickets redirects to Requester Selection | `client/test/lab-02/RequesterSelector.test.tsx` | Planned |
@@ -82,6 +85,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | STYLE-04 | Style | Playwright | AC-10 | Mobile viewport (<768px): no horizontal scrolling on any page | `e2e/lab-02/style-responsive.spec.ts` | Planned |
 | STYLE-05 | Style | Playwright | AC-10 | Desktop viewport (≥992px): multi-column layout renders correctly | `e2e/lab-02/style-responsive.spec.ts` | Planned |
 
+
 ## 9.2 AC ↔ Test Coverage Matrix
 
 | AC | Description | Covered By Tests |
@@ -96,7 +100,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | AC-08 | Pagination works correctly | API-11, API-12, UI-10, E2E-02, E2E-05 |
 | AC-09 | Requester switching updates ticket context | E2E-04 |
 | AC-10 | Responsive layout (mobile/tablet/desktop) | STYLE-01, STYLE-03, STYLE-04, STYLE-05 |
-| AC-11 | API failure → user-friendly error + form data preserved | — (manual verification) |
+| AC-11 | API failure → user-friendly error + form data preserved | API-32, API-33 (automated API); manual verification for UI data-preservation behaviour |
 | BR-06 | MIME type validation | UNIT-05, API-22, UI-13 |
 | BR-12 | Safe filename sanitization | UNIT-03 |
 

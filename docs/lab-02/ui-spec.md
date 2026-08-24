@@ -30,6 +30,7 @@
 - **Busy State**: Button shows a loading spinner/text and is disabled while processing (e.g., "Submitting...").
 
 ## 5. Screen Layouts and Responsive Rules
+- **All Sizes**: No clipped labels, overlapping messages, hidden buttons, or unreadable attachment names at any viewport width.
 - **Desktop (>= 992px)**: Multi-column layout as specified. Content centered with a sensible maximum width. Tables used for data lists.
 - **Tablet (768-991px)**: Two-column layout where practical. `Summary` and `Description` receive full width.
 - **Mobile (< 768px)**: Fields stack vertically. Buttons remain touch-friendly (min 44px height). No horizontal page scrolling. Tables collapse into card views:

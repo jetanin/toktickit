@@ -85,13 +85,13 @@ All endpoints may return the following unexpected error:
   - `sort` (string): Field to sort by (e.g., `ticketNumber`, `createdAt`, `updatedAt`). Default: `updatedAt`.
   - `order` (string): `asc` or `desc`. Default: `desc`.
   - `page` (number): Page number (1-indexed). Default: `1`.
-  - `limit` (number): Items per page. Default: `8`.
+  - `limit` (number): Items per page. Default: `8`. Maximum: `100`.
 - **Invalid Parameter Behavior**:
   - Unknown query parameters are silently ignored.
   - `page` values ≤ 0, non-numeric, or exceeding total pages → `400 Bad Request` with `{ "error": "Invalid page parameter" }`.
   - `sort` with an unsupported field name → `400 Bad Request` with `{ "error": "Invalid sort field" }`.
   - `order` with a value other than `asc` or `desc` → `400 Bad Request` with `{ "error": "Invalid order parameter" }`.
-  - `limit` values ≤ 0 or non-numeric → `400 Bad Request` with `{ "error": "Invalid limit parameter" }`.
+  - `limit` values ≤ 0, non-numeric, or exceeding `100` → `400 Bad Request` with `{ "error": "Invalid limit parameter" }`.
 - **Secondary Sort**: When the primary `sort` field contains duplicate values, `id DESC` is used as a secondary sort to guarantee deterministic ordering.
 - **Response** (200 OK):
 ```json
