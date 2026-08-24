@@ -44,6 +44,9 @@ The IT department needs a professional, responsive portal for end users (Request
 - **BR-08**: A ticket can have a maximum of 5 active attachments.
 - **BR-09**: Removed attachments are soft-removed; their metadata remains visible but files cannot be downloaded.
 - **BR-10**: Attempting to access a Ticket or Attachment belonging to another Requester must result in an ownership failure/unauthorized error.
+- **BR-11**: The system shall prevent duplicate ticket submission. The Submit button must be disabled and show a busy state ("Submitting...") after the first click. If the API returns an error, the form must retain all user-entered data so the user can correct and re-submit without re-entering.
+- **BR-12**: Uploaded attachment filenames must be sanitized before storage to prevent path traversal and special character issues. Storage filenames must be unique (e.g., UUID-based). The original filename is preserved in metadata for display purposes only.
+- **BR-13**: If an attachment upload fails after the parent ticket was successfully created, the ticket remains valid and persisted. The user is shown an error message for the failed attachment and may retry the upload without re-creating the ticket.
 
 ## 6. UI Specification Summary
 - **Theme**: Zen Green (#006B3C primary, #0B7A46 secondary, #EAF6EF pale green).
@@ -66,6 +69,28 @@ The IT department needs a professional, responsive portal for end users (Request
 - **Category**: id, name, isActive.
 - **RelatedSystem**: id, name, isActive.
 
+### 7.1 Index and Constraint Decisions
+
+| Column / Constraint | Type | Justification |
+| --- | --- | --- |
+| `Ticket.ticketNumber` | UNIQUE constraint + B-tree index | Business key used for search (My Tickets search bar) and display. Must be unique to prevent duplicate official numbers. Index accelerates `LIKE 'TKT-%'` lookups. |
+| `Ticket.requesterId` | B-tree index | Every `GET /api/tickets` query filters by `requesterId` (ownership). Without an index, full table scans would degrade as ticket volume grows. |
+| `Attachment.ticketId` | B-tree index | Ticket detail always joins/fetches attachments by `ticketId`. Index avoids sequential scan on the Attachment table. |
+| `DevelopmentRequester.email` | UNIQUE constraint | Email is a natural key for requesters. Prevents duplicate requester records during seeding and future user management. |
+
+### 7.2 Seed Data Requirements
+
+Minimum seed data for development and testing:
+
+| Entity | Minimum Count | Notes |
+| --- | --- | --- |
+| DevelopmentRequester (active) | ≥ 4 | Enough to test ownership filtering and requester switching |
+| DevelopmentRequester (inactive) | ≥ 1 | Verify inactive requesters are excluded from selector |
+| Category | ≥ 4 | Cover filter/dropdown testing |
+| RelatedSystem | ≥ 6 | Lab Sheet requirement; enough for dropdown variety |
+| Ticket (sample) | ≥ 10 | Spread across multiple requesters; enough to test pagination (default 8/page) |
+| Attachment (sample) | ≥ 3 | At least one ticket with multiple attachments, one with a soft-removed attachment |
+
 ## 8. API Contract
 - `GET /api/dev-requesters`: Retrieve active Development Requesters.
 - `GET /api/categories`: Retrieve active Categories.
@@ -86,6 +111,9 @@ The IT department needs a professional, responsive portal for end users (Request
 - **AC-06** Given a Requester has 0 tickets, when they view My Tickets, then an empty state illustration/message is displayed.
 - **AC-07** Given an active attachment on a Ticket, when the user soft-removes it and provides a reason, then the attachment is marked as removed and can no longer be downloaded.
 - **AC-08** Given a paginated ticket list, when the user clicks next page, then the appropriate next subset of tickets is loaded and displayed.
+- **AC-09** Given a Requester is on the selection screen, when they select a different Requester, then the identity context switches, localStorage is updated, and My Tickets shows only the newly selected Requester's tickets.
+- **AC-10** Given a Requester is on any screen, when the viewport is resized to mobile (<768px), then all content remains accessible without horizontal scrolling and the ticket table converts to a card layout.
+- **AC-11** Given the API returns a 500 error or is unreachable, when the user is on any screen, then a user-friendly error message is displayed and any form data the user has entered is preserved.
 
 ## 10. Definition of Done
 - All approved scope implemented and Acceptance Criteria satisfied.

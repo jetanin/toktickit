@@ -25,6 +25,7 @@
 ## 4. Button Hierarchy and States
 - **Primary Button**: Solid Primary Green background, white text.
 - **Secondary Button**: Outline or lighter background.
+- **Tertiary Button**: Text-only (no background, no border), uses Secondary Green (`#0B7A46`) text color. Used for low-emphasis actions such as "Cancel", "Clear Filters", "Change Requester". Hover state adds a subtle underline or pale green background.
 - **Destructive Button**: Red background/text for actions like soft-removal.
 - **Busy State**: Button shows a loading spinner/text and is disabled while processing (e.g., "Submitting...").
 
@@ -41,21 +42,27 @@
     - Ticket Owner (Avatar initial/icon + small name, bottom)
   - **Hide on Card (Available in Detail View)**: Created Date, Category, Requested Priority.
 
-## 6. Application Shell and Navigation
+## 6. Requester Selection Screen States
+- **Loading**: Skeleton cards or a centered spinner displayed while fetching the requester list from `GET /api/dev-requesters`.
+- **Loaded (Normal)**: Grid/list of active requester cards, each showing name and email. Clicking a card selects the requester and navigates to My Tickets.
+- **Empty State**: When the API returns an empty array (no active requesters), display an illustration with the message: "No active requesters available. Please contact the IT administrator."
+- **API Failure State**: When the API request fails (network error or HTTP 5xx), display an error message: "Unable to load requesters. Please try again." with a **Retry** button.
+
+## 7. Application Shell and Navigation
 - **Header**: TokTickIT application identity/logo.
 - **Navigation**: Links to "My Tickets" and "Create Ticket". Clear active-page indication. Responsive hamburger menu on mobile.
-- **User Context**: Active Development Requester identity displayed in the header, with a "Change Requester" action to return to the selection screen.
+- **User Context**: Active Development Requester identity displayed in the header, with a "Change Requester" action (Tertiary button) to return to the selection screen.
 
-## 7. Form and Page States
+## 8. Form and Page States
 - **Initial**: Blank or default values.
 - **Loading**: Skeletons or spinners when fetching data.
 - **Submitting**: Form disabled, primary action shows busy state.
 - **Success**: Clear green confirmation (e.g., showing generated Ticket Number) and prompt for next action.
-- **Failure/Error**: Safe error state with form values preserved and clear error message.
+- **Failure/Error**: Safe error state with form values preserved and clear error message. The user can re-submit without re-entering data.
 
-## 8. Ticket List (My Tickets)
+## 9. Ticket List (My Tickets)
 - **Columns**: Ticket No., Created Date, Summary, Category, Requested Priority, IT Priority, Current Status, Ticket Owner, Last Updated.
-- **Controls**: Search input, Filter dropdowns (Category, Priority, Status), Sort options, "Clear Filters" button, and Pagination controls (default 8 items per page).
+- **Controls**: Search input, Filter dropdowns (Category, Priority, Status), Sort options, "Clear Filters" button (Tertiary), and Pagination controls (default 8 items per page).
 - **Empty List / No Results**: Display "No Ticket Found".
 - **Badges**: 
   - **Priority (Requested & IT)**: 
@@ -68,23 +75,24 @@
     - Pending: Orange text, light orange background.
     - Resolved: Green text, light green background.
 
-## 9. Ticket Detail (Read-only)
+## 10. Ticket Detail (Read-only)
 - **Layout**: Read-only presentation of ticket fields, clearly separated from the Attachments section.
 
-## 10. Attachment Lifecycle UI
+## 11. Attachment Lifecycle UI
 - **Selection**: File input for choosing allowed files (JPG, PNG, WEBP, PDF).
 - **Error Presentation**: Inline errors for oversized (>5MB) or invalid file types.
 - **Active State**: File name, size, and download link/icon.
 - **Uploading State**: Progress indication or busy state.
 - **Removed State**: Strikethrough or muted visual indicating soft-removal, removal reason displayed, and download blocked.
+- **Unavailable State**: When attachment metadata loads successfully but the physical file is missing from storage, display a warning icon with the text "File unavailable". Use muted styling similar to the Removed State but without a removal reason. Download action is disabled.
 - **Soft Removal Action**: Clicking 'Remove' opens a prompt requiring the user to select a reason from a dropdown (including an "Other" option for free-text input).
 
-## 11. Accessibility
+## 12. Accessibility
 - All icon-only controls must have accessible labels (`aria-label`) and tooltips.
 - Keyboard focus indicators must remain visible.
 - Success and Error states must not rely on color alone (use icons + text).
 
-## 12. Visual Inspection Checklist & Screenshots
+## 13. Visual Inspection Checklist & Screenshots
 - [ ] No clipped labels or unreadable text.
 - [ ] No overlapping messages or hidden buttons.
 - [ ] No unintended horizontal scrolling on mobile.
