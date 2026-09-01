@@ -4,6 +4,9 @@ CREATE TYPE "Priority" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
 -- CreateEnum
 CREATE TYPE "TicketStatus" AS ENUM ('NEW');
 
+-- AlterTable
+ALTER TABLE "Category" ADD COLUMN     "isActive" BOOLEAN NOT NULL DEFAULT true;
+
 -- CreateTable
 CREATE TABLE "RelatedSystem" (
     "id" SERIAL NOT NULL,
@@ -15,14 +18,14 @@ CREATE TABLE "RelatedSystem" (
 );
 
 -- CreateTable
-CREATE TABLE "RequesterUser" (
+CREATE TABLE "DevelopmentRequester" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "RequesterUser_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "DevelopmentRequester_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -32,9 +35,10 @@ CREATE TABLE "Ticket" (
     "requesterId" INTEGER NOT NULL,
     "categoryId" INTEGER NOT NULL,
     "relatedSystemId" INTEGER NOT NULL,
-    "summary" VARCHAR(150) NOT NULL,
-    "description" VARCHAR(2000) NOT NULL,
+    "summary" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(1000) NOT NULL,
     "requestedPriority" "Priority" NOT NULL,
+    "itPriority" "Priority",
     "currentStatus" "TicketStatus" NOT NULL DEFAULT 'NEW',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -46,13 +50,12 @@ CREATE TABLE "Ticket" (
 CREATE TABLE "Attachment" (
     "id" SERIAL NOT NULL,
     "ticketId" INTEGER NOT NULL,
-    "originalFileName" TEXT NOT NULL,
-    "storedFileName" TEXT NOT NULL,
+    "originalFilename" TEXT NOT NULL,
+    "storagePath" TEXT NOT NULL,
     "mimeType" TEXT NOT NULL,
-    "fileSizeBytes" INTEGER NOT NULL,
-    "isRemoved" BOOLEAN NOT NULL DEFAULT false,
+    "size" INTEGER NOT NULL,
     "removedAt" TIMESTAMP(3),
-    "removedReason" VARCHAR(300),
+    "removalReason" VARCHAR(300),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Attachment_pkey" PRIMARY KEY ("id")
@@ -62,10 +65,13 @@ CREATE TABLE "Attachment" (
 CREATE UNIQUE INDEX "RelatedSystem_name_key" ON "RelatedSystem"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "RequesterUser_email_key" ON "RequesterUser"("email");
+CREATE INDEX "RelatedSystem_isActive_idx" ON "RelatedSystem"("isActive");
 
 -- CreateIndex
-CREATE INDEX "RequesterUser_isActive_idx" ON "RequesterUser"("isActive");
+CREATE UNIQUE INDEX "DevelopmentRequester_email_key" ON "DevelopmentRequester"("email");
+
+-- CreateIndex
+CREATE INDEX "DevelopmentRequester_isActive_idx" ON "DevelopmentRequester"("isActive");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Ticket_ticketNumber_key" ON "Ticket"("ticketNumber");
@@ -83,16 +89,19 @@ CREATE INDEX "Ticket_currentStatus_idx" ON "Ticket"("currentStatus");
 CREATE INDEX "Ticket_createdAt_idx" ON "Ticket"("createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Attachment_storedFileName_key" ON "Attachment"("storedFileName");
+CREATE UNIQUE INDEX "Attachment_storagePath_key" ON "Attachment"("storagePath");
 
 -- CreateIndex
 CREATE INDEX "Attachment_ticketId_idx" ON "Attachment"("ticketId");
 
 -- CreateIndex
-CREATE INDEX "Attachment_ticketId_isRemoved_idx" ON "Attachment"("ticketId", "isRemoved");
+CREATE INDEX "Attachment_ticketId_removedAt_idx" ON "Attachment"("ticketId", "removedAt");
+
+-- CreateIndex
+CREATE INDEX "Category_isActive_idx" ON "Category"("isActive");
 
 -- AddForeignKey
-ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "RequesterUser"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "DevelopmentRequester"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
