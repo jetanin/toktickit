@@ -5,6 +5,7 @@
 All endpoints may return the following unexpected error:
 
 - `500 Internal Server Error`: Unexpected server error.
+
 ```json
 { "error": "Internal Server Error" }
 ```
@@ -14,8 +15,10 @@ All endpoints may return the following unexpected error:
 ## 1. Reference Data Endpoints
 
 ### 1.1 GET /api/dev-requesters
+
 - **Description**: Retrieve a list of active Development Requesters for the selector.
 - **Response** (200 OK):
+
 ```json
 [
   {
@@ -26,39 +29,48 @@ All endpoints may return the following unexpected error:
   }
 ]
 ```
+
 - **Error Responses**:
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 1.2 GET /api/categories
+
 - **Description**: Retrieve active Categories for ticket creation.
 - **Response** (200 OK):
+
 ```json
 [
   { "id": 1, "name": "Hardware" },
   { "id": 2, "name": "Software" }
 ]
 ```
+
 - **Error Responses**:
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 1.3 GET /api/related-systems
+
 - **Description**: Retrieve active Related Systems.
 - **Response** (200 OK):
+
 ```json
 [
   { "id": 1, "name": "Corporate Laptop" },
   { "id": 2, "name": "VPN" }
 ]
 ```
+
 - **Error Responses**:
   - `500 Internal Server Error`: Unexpected server error.
 
 ## 2. Ticket Endpoints
 
 ### 2.1 POST /api/tickets
+
 - **Description**: Create a new Ticket for the selected requester.
 - **Headers**: `X-Requester-Id: <id>`
 - **Request Body**:
+
 ```json
 {
   "categoryId": 1,
@@ -68,6 +80,7 @@ All endpoints may return the following unexpected error:
   "requestedPriority": "Medium"
 }
 ```
+
 - **Responses**:
   - `201 Created`: Ticket successfully created. Returns the created ticket object including the generated `ticketNumber` and `id`.
   - `400 Bad Request`: Validation failure (e.g., summary exceeds 100 chars, description exceeds 1000 chars, missing required fields).
@@ -75,10 +88,11 @@ All endpoints may return the following unexpected error:
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 2.2 GET /api/tickets
+
 - **Description**: Retrieve a paginated, searchable, filterable, and sortable list of tickets owned by the selected Requester.
 - **Headers**: `X-Requester-Id: <id>`
 - **Query Parameters**:
-  - `search` (string): Matches Ticket Number, Summary, or Ticket Owner.
+  - `search` (string): Matches Ticket Number, Summary, or Requester Name.
   - `category` (number): Filter by category ID.
   - `priority` (string): Filter by requested priority.
   - `status` (string): Filter by current status.
@@ -94,6 +108,7 @@ All endpoints may return the following unexpected error:
   - `limit` values ≤ 0, non-numeric, or exceeding `100` → `400 Bad Request` with `{ "error": "Invalid limit parameter" }`.
 - **Secondary Sort**: When the primary `sort` field contains duplicate values, `id DESC` is used as a secondary sort to guarantee deterministic ordering.
 - **Response** (200 OK):
+
 ```json
 {
   "data": [
@@ -107,7 +122,7 @@ All endpoints may return the following unexpected error:
       "createdAt": "2025-05-12T09:14:00Z",
       "updatedAt": "2025-05-13T10:30:00Z",
       "category": { "id": 1, "name": "Hardware" },
-      "owner": { "id": 5, "name": "Michael Brown" }
+      "requester": { "id": 5, "name": "Michael Brown" }
     }
   ],
   "meta": {
@@ -118,14 +133,17 @@ All endpoints may return the following unexpected error:
   }
 }
 ```
+
 - **Error Responses**:
   - `400 Bad Request`: Invalid query parameters (see above).
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 2.3 GET /api/tickets/:id
+
 - **Description**: Retrieve details of a specific ticket owned by the selected Requester.
 - **Headers**: `X-Requester-Id: <id>`
 - **Response** (200 OK):
+
 ```json
 {
   "id": 101,
@@ -146,7 +164,6 @@ All endpoints may return the following unexpected error:
       "originalFilename": "screenshot.png",
       "size": 102400,
       "mimeType": "image/png",
-      "isRemoved": false,
       "removalReason": null,
       "removedAt": null,
       "createdAt": "2025-05-12T09:15:00Z"
@@ -154,6 +171,7 @@ All endpoints may return the following unexpected error:
   ]
 }
 ```
+
 - **Error Responses**:
   - `403 Forbidden`: Ticket exists but belongs to a different Requester.
   - `404 Not Found`: Ticket does not exist.
@@ -162,6 +180,7 @@ All endpoints may return the following unexpected error:
 ## 3. Attachment Endpoints
 
 ### 3.1 POST /api/tickets/:id/attachments
+
 - **Description**: Upload a new attachment to a specific ticket.
 - **Headers**: `X-Requester-Id: <id>` (to verify ownership of the ticket)
 - **Request**: `multipart/form-data` with an `attachment` field.
@@ -173,14 +192,16 @@ All endpoints may return the following unexpected error:
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 3.2 GET /api/attachments/:id
+
 - **Description**: Retrieve attachment metadata (not the file content itself).
 - **Headers**: `X-Requester-Id: <id>`
 - **Responses**:
-  - `200 OK`: Returns `{ "id": 1, "originalFilename": "screenshot.png", "size": 102400, "mimeType": "image/png", "isRemoved": false }`
+  - `200 OK`: Returns `{ "id": 1, "originalFilename": "screenshot.png", "size": 102400, "mimeType": "image/png" }`
   - `403 Forbidden` / `404 Not Found`.
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 3.3 GET /api/attachments/:id/download
+
 - **Description**: Download the active attachment binary file.
 - **Headers**: `X-Requester-Id: <id>`
 - **Responses**:
@@ -190,14 +211,17 @@ All endpoints may return the following unexpected error:
   - `500 Internal Server Error`: Unexpected server error.
 
 ### 3.4 PATCH /api/attachments/:id/remove
+
 - **Description**: Soft-remove an attachment.
 - **Headers**: `X-Requester-Id: <id>`
 - **Request Body** (JSON):
+
 ```json
 {
   "reason": "Uploaded the wrong screenshot."
 }
 ```
+
 - **Responses**:
   - `200 OK` (or `204 No Content`): Attachment successfully soft-removed.
   - `400 Bad Request`: Missing reason payload.
