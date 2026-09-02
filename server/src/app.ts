@@ -18,13 +18,42 @@ app.get('/api/health', (req, res) => {
 app.get('/api/categories', async (req, res) => {
   try {
     const categories = await prisma.category.findMany({
+      where: { isActive: true },
       orderBy: { id: 'asc' },
       select: { id: true, name: true },
     });
     res.status(200).json(categories);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Unable to fetch categories' });
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/related-systems', async (req, res) => {
+  try {
+    const systems = await prisma.relatedSystem.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    res.status(200).json(systems);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/dev-requesters', async (req, res) => {
+  try {
+    const requesters = await prisma.developmentRequester.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, email: true, isActive: true },
+    });
+    res.status(200).json(requesters);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
