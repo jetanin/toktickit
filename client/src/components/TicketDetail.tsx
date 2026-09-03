@@ -248,7 +248,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
   return (
     <div>
       {/* Header bar with Back action */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm px-3"

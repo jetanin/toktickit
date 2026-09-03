@@ -221,7 +221,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
   return (
     <div>
       {/* Title & Quick Action */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
         <div>
           <h1 className="h4 fw-bold mb-0" style={{ color: '#006B3C' }}>
             My Tickets
@@ -244,7 +244,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
       <div className="card shadow-sm border-0 mb-4" style={{ backgroundColor: '#FFFFFF' }}>
         <div className="card-body p-3">
           <form onSubmit={handleSearchSubmit} className="row g-2">
-            <div className="col-12 col-md-4">
+            <div className="col-12 col-md-6 col-lg-4">
               <input
                 type="text"
                 className="form-control"
@@ -253,7 +253,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="col-6 col-md-2">
+            <div className="col-12 col-sm-6 col-md-3 col-lg-2">
               <select
                 className="form-select"
                 value={category}
@@ -270,7 +270,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                 ))}
               </select>
             </div>
-            <div className="col-6 col-md-2">
+            <div className="col-12 col-sm-6 col-md-3 col-lg-2">
               <select
                 className="form-select"
                 value={priority}
@@ -285,7 +285,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                 <option value="High">High</option>
               </select>
             </div>
-            <div className="col-6 col-md-2">
+            <div className="col-12 col-sm-6 col-md-3 col-lg-2">
               <select
                 className="form-select"
                 value={status}
@@ -298,7 +298,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                 <option value="New">New</option>
               </select>
             </div>
-            <div className="col-6 col-md-2 d-grid">
+            <div className="col-12 col-sm-6 col-md-3 col-lg-2 d-grid">
               <button
                 type="submit"
                 className="btn text-white fw-semibold"
@@ -387,44 +387,44 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
       ) : (
         <>
           {/* Desktop & Tablet Table (>= 768px) */}
-          <div className="d-none d-md-block card shadow-sm border-0 overflow-hidden mb-3" style={{ backgroundColor: '#FFFFFF' }}>
+          <div className="d-none d-md-block card shadow-sm border-0 mb-3" style={{ backgroundColor: '#FFFFFF' }}>
             <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
+              <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.85rem' }}>
                 <thead style={{ backgroundColor: '#F5F7F6', borderBottom: '1px solid #E2E8E5' }}>
-                  <tr className="small text-muted text-uppercase">
-                    <th className="ps-3 py-3">Ticket No.</th>
-                    <th className="py-3">Created Date</th>
-                    <th className="py-3">Summary</th>
-                    <th className="py-3">Category</th>
-                    <th className="py-3">Req. Priority</th>
-                    <th className="py-3">IT Priority</th>
-                    <th className="py-3">Status</th>
-                    <th className="py-3">Requester</th>
-                    <th className="py-3">Last Updated</th>
-                    <th className="pe-3 py-3 text-end">Action</th>
+                  <tr className="text-muted text-uppercase text-nowrap" style={{ fontSize: '0.75rem' }}>
+                    <th className="ps-3 py-2">Ticket No.</th>
+                    <th className="py-2 d-none d-lg-table-cell">Created Date</th>
+                    <th className="py-2">Summary</th>
+                    <th className="py-2">Category</th>
+                    <th className="py-2">Req. Priority</th>
+                    <th className="py-2">IT Priority</th>
+                    <th className="py-2">Status</th>
+                    <th className="py-2 d-none d-lg-table-cell">Requester</th>
+                    <th className="py-2">Last Updated</th>
+                    <th className="pe-3 py-2 text-end">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tickets.map((t) => (
                     <tr key={t.id}>
-                      <td className="ps-3 fw-semibold small text-muted">{t.ticketNumber}</td>
-                      <td className="small text-muted">{new Date(t.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <strong className="d-block text-truncate" style={{ maxWidth: '220px' }}>
+                      <td className="ps-3 py-2 fw-semibold text-muted text-nowrap">{t.ticketNumber}</td>
+                      <td className="py-2 text-muted text-nowrap d-none d-lg-table-cell">{new Date(t.createdAt).toLocaleDateString()}</td>
+                      <td className="py-2">
+                        <strong className="d-block text-truncate" style={{ maxWidth: '160px' }}>
                           {t.summary}
                         </strong>
                       </td>
-                      <td className="small">{t.category?.name}</td>
-                      <td>{getPriorityBadge(t.requestedPriority)}</td>
-                      <td>{getPriorityBadge(t.itPriority)}</td>
-                      <td>{getStatusBadge(t.currentStatus)}</td>
-                      <td className="small text-muted">{t.requester?.name}</td>
-                      <td className="small text-muted">{new Date(t.updatedAt).toLocaleDateString()}</td>
-                      <td className="pe-3 text-end">
+                      <td className="py-2 text-nowrap">{t.category?.name}</td>
+                      <td className="py-2 text-nowrap">{getPriorityBadge(t.requestedPriority)}</td>
+                      <td className="py-2 text-nowrap">{getPriorityBadge(t.itPriority)}</td>
+                      <td className="py-2 text-nowrap">{getStatusBadge(t.currentStatus)}</td>
+                      <td className="py-2 text-muted text-nowrap d-none d-lg-table-cell">{t.requester?.name}</td>
+                      <td className="py-2 text-muted text-nowrap">{new Date(t.updatedAt).toLocaleDateString()}</td>
+                      <td className="pe-3 py-2 text-end text-nowrap">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-success px-3 py-1"
-                          style={{ color: '#0B7A46', borderColor: '#0B7A46' }}
+                          className="btn btn-sm btn-outline-success px-2 py-0"
+                          style={{ color: '#0B7A46', borderColor: '#0B7A46', fontSize: '0.78rem' }}
                           onClick={() => onViewTicket(t.id)}
                         >
                           View

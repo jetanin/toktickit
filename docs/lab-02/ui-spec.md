@@ -108,11 +108,28 @@
 
 ## 13. Visual Inspection Checklist & Screenshots
 
-- [ ] No clipped labels or unreadable text.
-- [ ] No overlapping messages or hidden buttons.
-- [ ] No unintended horizontal scrolling on mobile.
-- **Screenshot Paths**:
-  - `artifacts/lab-02/screenshots/create-ticket/desktop.png`
-  - `artifacts/lab-02/screenshots/create-ticket/mobile.png`
-  - `artifacts/lab-02/screenshots/my-tickets/desktop.png`
-  - `artifacts/lab-02/screenshots/ticket-detail/desktop.png`
+Completed audit against Section 8.8 of the labsheet across all 3 viewports (Desktop ≥ 992px, Tablet 768–991px, Mobile < 768px):
+
+| Checklist Item                                                            |  Status  | Evidence & References                                                                                                                                                                                                                                                                                                                |
+| :------------------------------------------------------------------------ | :------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No clipped labels or unreadable text**                                  | **PASS** | Form inputs, select dropdowns, table headers, and badges have full text visibility across all viewports. (`artifacts/lab-02/screenshots/create-ticket/{desktop,tablet,mobile}.png`, `artifacts/lab-02/screenshots/my-tickets/{desktop,tablet,mobile}.png`)                                                                           |
+| **No overlapping text or messages**                                       | **PASS** | Header bar in Ticket Detail stacks cleanly on mobile (`d-flex flex-column flex-sm-row`) without collision between Back button and ticket number. (`artifacts/lab-02/screenshots/ticket-detail/mobile.png`)                                                                                                                           |
+| **No unintended horizontal scrolling on mobile**                          | **PASS** | Layout elements, forms, and cards are constrained to viewport width with zero horizontal page scroll. (`artifacts/lab-02/screenshots/{create-ticket,my-tickets,ticket-detail}/mobile.png`)                                                                                                                                           |
+| **Consistent badge colors across all pages**                              | **PASS** | Requested Priority: Low (`#0B7A46`/`#EAF6EF`), Medium (`#8A6D00`/`#FEF8E7`), High (`#C5221F`/`#FCE8E6`). Status: New (`#0052CC`/`#DEEBFF`). Identical badges in table and detail screens. (`artifacts/lab-02/screenshots/my-tickets/desktop.png`, `artifacts/lab-02/screenshots/ticket-detail/desktop.png`)                          |
+| **Filters, pagination, and attachment controls usable at every viewport** | **PASS** | Filter bar collapses into touch-friendly cards on mobile and grids on tablet/desktop; attachment card stacks neatly below ticket info on tablet/mobile and sits beside on desktop. (`artifacts/lab-02/screenshots/my-tickets/{desktop,tablet,mobile}.png`, `artifacts/lab-02/screenshots/ticket-detail/{desktop,tablet,mobile}.png`) |
+| **Buttons are touch-friendly on mobile**                                  | **PASS** | All interactive buttons adhere to `min-height: 44px` on mobile screens per Zen Green guidelines. (`artifacts/lab-02/screenshots/{create-ticket,my-tickets,ticket-detail}/mobile.png`)                                                                                                                                                |
+
+### Generated Screenshot Artifacts (9 of 9 produced)
+
+- **Create Ticket**:
+  - Desktop (1280x800): `artifacts/lab-02/screenshots/create-ticket/desktop.png`
+  - Tablet (820x1024): `artifacts/lab-02/screenshots/create-ticket/tablet.png`
+  - Mobile (375x812): `artifacts/lab-02/screenshots/create-ticket/mobile.png`
+- **My Tickets**:
+  - Desktop (1280x800): `artifacts/lab-02/screenshots/my-tickets/desktop.png`
+  - Tablet (820x1024): `artifacts/lab-02/screenshots/my-tickets/tablet.png`
+  - Mobile (375x812): `artifacts/lab-02/screenshots/my-tickets/mobile.png`
+- **Ticket Detail**:
+  - Desktop (1280x800): `artifacts/lab-02/screenshots/ticket-detail/desktop.png`
+  - Tablet (820x1024): `artifacts/lab-02/screenshots/ticket-detail/tablet.png`
+  - Mobile (375x812): `artifacts/lab-02/screenshots/ticket-detail/mobile.png`

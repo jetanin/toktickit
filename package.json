@@ -1,0 +1,27 @@
+{
+  "name": "toktickit",
+  "version": "1.0.0",
+  "description": "TokTickIT (ตอกติ๊กกิต) คือแอปพลิเคชัน IT Service Desk สำหรับแจ้งและติดตามคำขอด้าน Account and Access, Hardware, Software และ Network",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jetanin/toktickit.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jetanin/toktickit/issues"
+  },
+  "homepage": "https://github.com/jetanin/toktickit#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
