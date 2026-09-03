@@ -32,7 +32,7 @@ function mockFetchSuccess() {
   })
 }
 
-describe('App – Categories', () => {
+describe('App – Categories (Lab 01)', () => {
   it('displays all categories returned by the API', async () => {
     mockFetchSuccess()
 
