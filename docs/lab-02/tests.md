@@ -73,7 +73,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | UI-14 | UI | Vitest | AC-07 | Soft-remove flow shows dropdown with predefined reasons including "อื่นๆ (โปรดระบุ)" | `client/test/lab-02/TicketDetail.test.tsx` | **Pass** |
 | UI-15 | UI | Vitest | AC-07 | After soft-removal, attachment shows removed state and download is blocked | `client/test/lab-02/TicketDetail.test.tsx` | **Pass** |
 | **E2E & Responsive Tests (Playwright)** | | | | | | |
-| E2E-01 | E2E | Playwright | AC-01, AC-02 | Full create-ticket flow: select requester → navigate to create ticket → form accessible | `e2e/lab-02/visual-check.spec.ts` | **Pass** |
+| E2E-01 | E2E | Playwright | AC-01, AC-02 | Full create-ticket flow: select requester → navigate to create ticket → form accessible → verify in My Tickets and Ticket Detail | `e2e/lab-02/requester-ticket-flow.spec.ts` | **Pass** |
 | E2E-02 | E2E | Playwright | AC-08 | My Tickets table / card views render correctly across all devices | `e2e/lab-02/visual-check.spec.ts` | **Pass** |
 | E2E-03 | E2E | Playwright | AC-05, AC-07 | Ticket Detail screen with attachment panel renders and is interactive | `e2e/lab-02/visual-check.spec.ts` | **Pass** |
 | E2E-04 | E2E | Playwright | AC-09 | Requester identity simulation initializes and transitions smoothly to My Tickets | `e2e/lab-02/visual-check.spec.ts` | **Pass** |
@@ -122,8 +122,9 @@ npx vitest run
 
 ### E2E & Responsive Visual Check (Playwright):
 ```bash
-npx playwright test e2e/lab-02/visual-check.spec.ts
+npx playwright test
 ```
+*(หรือรันแยกแต่ละไฟล์: `npx playwright test e2e/lab-02/requester-ticket-flow.spec.ts` และ `npx playwright test e2e/lab-02/visual-check.spec.ts`)*
 
 ---
 
@@ -146,30 +147,31 @@ npx playwright test e2e/lab-02/visual-check.spec.ts
    Duration  3.50s
 ```
 
-### 2. Client Vitest Results (23 of 23 Passed — 0 Skipped)
+### 2. Client Vitest Results (24 of 24 Passed — 0 Skipped)
 ```text
  RUN  v4.1.10 C:/Work/2569/CPE334/toktickit/client
 
  ✓ test/lab-02/RequesterSelector.test.tsx (4 tests)
  ✓ test/lab-02/CreateTicket.test.tsx (6 tests)
  ✓ test/lab-02/MyTickets.test.tsx (6 tests)
- ✓ test/lab-02/TicketDetail.test.tsx (4 tests)
+ ✓ test/lab-02/TicketDetail.test.tsx (5 tests)
  ✓ test/lab-01/App.test.tsx (3 tests)
 
  Test Files  5 passed (5)
-      Tests  23 passed (23)
-   Duration  1.82s
+      Tests  24 passed (24)
+   Duration  2.15s
 ```
 
-### 3. Playwright E2E & Visual Responsive Results (3 of 3 Passed)
+### 3. Playwright E2E & Visual Responsive Results (4 of 4 Passed)
 ```text
-Running 3 tests using 1 worker
+Running 4 tests using 2 workers
 
-  ✓  1 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - desktop (1280x800) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (4.9s)
-  ✓  2 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - tablet (820x1024) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (4.6s)
-  ✓  3 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - mobile (375x812) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.2s)
+  ✓  1 [chromium] › e2e\lab-02\requester-ticket-flow.spec.ts:11:7 › Requester Ticket Full Flow (E2E) › completes full end-to-end flow: select requester -> create ticket -> verify in My Tickets -> verify Ticket Detail (1.3s)
+  ✓  2 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - desktop (1280x800) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.2s)
+  ✓  3 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - tablet (820x1024) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (4.6s)
+  ✓  4 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - mobile (375x812) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.2s)
 
-  3 passed (15.2s)
+  4 passed (20.8s)
 ```
 
 ### 4. Generated Screenshot Artifacts (All 9 Produced)

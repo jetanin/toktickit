@@ -113,6 +113,7 @@ test.describe('Requester Ticket Full Flow (E2E)', () => {
     await expect(detailOfficialNumber).toContainText(createdTicketNumber);
 
     const detailSummary = page.locator('h1');
+    const detailSummary = page.locator('.card-header h1');
     await expect(detailSummary).toHaveText(testSummary);
 
     const detailDescription = page.locator('div[style*="pre-wrap"]');
