@@ -177,4 +177,36 @@ describe('TicketDetail Screen', () => {
       );
     });
   });
+
+  it('renders status and priority badges with correct Zen Green colors across states', async () => {
+    const customTicket = {
+      ...sampleTicketWithAttachments,
+      currentStatus: 'In Progress',
+      requestedPriority: 'Medium',
+      itPriority: 'Low',
+    };
+    setupTicketMock(customTicket);
+
+    render(<TicketDetail requester={mockRequester} ticketId={101} onBack={() => {}} />);
+
+    await waitFor(() => {
+      const statusBadge = screen.getByText('In Progress');
+      expect(statusBadge).toHaveStyle({
+        backgroundColor: '#EAF6EF',
+        color: '#006B3C',
+      });
+
+      const reqPriorityBadge = screen.getByText('Medium');
+      expect(reqPriorityBadge).toHaveStyle({
+        backgroundColor: '#FFF4E5',
+        color: '#B25E00',
+      });
+
+      const itPriorityBadge = screen.getByText('Low');
+      expect(itPriorityBadge).toHaveStyle({
+        backgroundColor: '#EAF6EF',
+        color: '#006B3C',
+      });
+    });
+  });
 });

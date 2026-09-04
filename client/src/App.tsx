@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import './App.css';
 import RequesterSelector, { type Requester } from './components/RequesterSelector';
 import CreateTicket from './components/CreateTicket';
@@ -8,23 +8,17 @@ import TicketDetail from './components/TicketDetail';
 export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL';
 
 function App() {
-  const [requester, setRequester] = useState<Requester | null>(null);
+  const [requester, setRequester] = useState<Requester | null>(() => {
+    try {
+      const saved = localStorage.getItem('toktickit_requester');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [currentView, setCurrentView] = useState<ViewType>('MY_TICKETS');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Load requester from localStorage on initial mount
-  useEffect(() => {
-    const saved = localStorage.getItem('toktickit_requester');
-    if (saved) {
-      try {
-        setRequester(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse saved requester:', e);
-        localStorage.removeItem('toktickit_requester');
-      }
-    }
-  }, []);
 
   const handleSelectRequester = (selected: Requester) => {
     setRequester(selected);

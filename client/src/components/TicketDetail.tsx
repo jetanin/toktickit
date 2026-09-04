@@ -245,10 +245,35 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
   const activeAttachments = ticket.attachments?.filter((a) => !a.removedAt) || [];
   const removedAttachments = ticket.attachments?.filter((a) => a.removedAt) || [];
 
+  const getPriorityBadgeStyle = (priority: string | null) => {
+    const lower = (priority || '').toLowerCase();
+    if (lower === 'high') {
+      return { backgroundColor: '#FDECEB', color: '#9C1A1A', border: '1px solid #F8BEBC' };
+    }
+    if (lower === 'medium') {
+      return { backgroundColor: '#FFF4E5', color: '#B25E00', border: '1px solid #FFE2B3' };
+    }
+    return { backgroundColor: '#EAF6EF', color: '#006B3C', border: '1px solid #BFE4D1' };
+  };
+
+  const getStatusBadgeStyle = (status: string | null) => {
+    const lower = (status || '').toLowerCase();
+    if (lower === 'in progress') {
+      return { backgroundColor: '#EAF6EF', color: '#006B3C', border: '1px solid #BFE4D1' };
+    }
+    if (lower === 'pending') {
+      return { backgroundColor: '#FFF4E5', color: '#B25E00', border: '1px solid #FFE2B3' };
+    }
+    if (lower === 'resolved') {
+      return { backgroundColor: '#EAF6EF', color: '#0B7A46', border: '1px solid #BFE4D1' };
+    }
+    return { backgroundColor: '#E8F1FA', color: '#105696', border: '1px solid #BDD8F0' };
+  };
+
   return (
     <div>
       {/* Header bar with Back action */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm px-3"
@@ -273,7 +298,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                 </div>
                 <span
                   className="badge px-2 py-1 fw-medium"
-                  style={{ backgroundColor: '#E8F1FA', color: '#105696', border: '1px solid #BDD8F0' }}
+                  style={getStatusBadgeStyle(ticket.currentStatus)}
                 >
                   {ticket.currentStatus}
                 </span>
@@ -321,10 +346,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                   <span className="d-block small text-muted">Requested Priority</span>
                   <span
                     className="badge fw-medium px-2 py-1"
-                    style={{
-                      backgroundColor: ticket.requestedPriority === 'High' ? '#FDECEB' : '#EAF6EF',
-                      color: ticket.requestedPriority === 'High' ? '#9C1A1A' : '#006B3C',
-                    }}
+                    style={getPriorityBadgeStyle(ticket.requestedPriority)}
                   >
                     {ticket.requestedPriority}
                   </span>
@@ -333,7 +355,12 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                 <div className="col-6 col-sm-4">
                   <span className="d-block small text-muted">IT Priority</span>
                   {ticket.itPriority ? (
-                    <span className="badge bg-secondary">{ticket.itPriority}</span>
+                    <span
+                      className="badge fw-medium px-2 py-1"
+                      style={getPriorityBadgeStyle(ticket.itPriority)}
+                    >
+                      {ticket.itPriority}
+                    </span>
                   ) : (
                     <span className="small text-muted">Unassigned</span>
                   )}
