@@ -395,7 +395,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                     <th className="ps-3 py-2">Ticket No.</th>
                     <th className="py-2 d-none d-lg-table-cell">Created Date</th>
                     <th className="py-2">Summary</th>
-                    <th className="py-2">Category</th>
+                    <th className="py-2 d-none d-lg-table-cell">Category</th>
                     <th className="py-2">Req. Priority</th>
                     <th className="py-2">IT Priority</th>
                     <th className="py-2">Status</th>
@@ -414,7 +414,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
                           {t.summary}
                         </strong>
                       </td>
-                      <td className="py-2 text-nowrap">{t.category?.name}</td>
+                      <td className="py-2 text-nowrap d-none d-lg-table-cell">{t.category?.name}</td>
                       <td className="py-2 text-nowrap">{getPriorityBadge(t.requestedPriority)}</td>
                       <td className="py-2 text-nowrap">{getPriorityBadge(t.itPriority)}</td>
                       <td className="py-2 text-nowrap">{getStatusBadge(t.currentStatus)}</td>
