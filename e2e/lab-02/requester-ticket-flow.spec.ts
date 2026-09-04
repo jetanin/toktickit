@@ -112,7 +112,6 @@ test.describe('Requester Ticket Full Flow (E2E)', () => {
     await expect(detailOfficialNumber).toBeVisible({ timeout: 10000 });
     await expect(detailOfficialNumber).toContainText(createdTicketNumber);
 
-    const detailSummary = page.locator('h1');
     const detailSummary = page.locator('.card-header h1');
     await expect(detailSummary).toHaveText(testSummary);
 
