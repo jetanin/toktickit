@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import './App.css';
 import RequesterSelector, { type Requester } from './components/RequesterSelector';
 import CreateTicket from './components/CreateTicket';
