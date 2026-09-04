@@ -256,6 +256,20 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
     return { backgroundColor: '#EAF6EF', color: '#006B3C', border: '1px solid #BFE4D1' };
   };
 
+  const getStatusBadgeStyle = (status: string | null) => {
+    const lower = (status || '').toLowerCase();
+    if (lower === 'in progress') {
+      return { backgroundColor: '#EAF6EF', color: '#006B3C', border: '1px solid #BFE4D1' };
+    }
+    if (lower === 'pending') {
+      return { backgroundColor: '#FFF4E5', color: '#B25E00', border: '1px solid #FFE2B3' };
+    }
+    if (lower === 'resolved') {
+      return { backgroundColor: '#EAF6EF', color: '#0B7A46', border: '1px solid #BFE4D1' };
+    }
+    return { backgroundColor: '#E8F1FA', color: '#105696', border: '1px solid #BDD8F0' };
+  };
+
   return (
     <div>
       {/* Header bar with Back action */}
@@ -284,7 +298,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                 </div>
                 <span
                   className="badge px-2 py-1 fw-medium"
-                  style={{ backgroundColor: '#E8F1FA', color: '#105696', border: '1px solid #BDD8F0' }}
+                  style={getStatusBadgeStyle(ticket.currentStatus)}
                 >
                   {ticket.currentStatus}
                 </span>
