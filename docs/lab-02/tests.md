@@ -78,7 +78,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | E2E-03                                   | E2E   | Playwright | AC-05, AC-07 | Ticket Detail screen with attachment panel renders and is interactive                                                            | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | E2E-04                                   | E2E   | Playwright | AC-09        | Requester identity simulation initializes and transitions smoothly to My Tickets                                                 | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | E2E-05                                   | E2E   | Playwright | AC-08        | Search, filters, sort, and action buttons are accessible across all screen sizes                                                 | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
-| E2E-06                                   | E2E   | Playwright | AC-01..11    | Scenario screenshots capture (validation error, invalid attachment, 500 error, success, requester isolation, soft-remove, etc.)   | `e2e/lab-02/scenario-screenshots.spec.ts`       | **Pass** |
+| E2E-06                                   | E2E   | Playwright | AC-01..11    | Scenario screenshots capture (validation error, invalid attachment, 500 error, success, requester isolation, soft-remove, etc.)  | `e2e/lab-02/scenario-screenshots.spec.ts`       | **Pass** |
 | **UI Style & Responsive Tests**          |       |            |              |                                                                                                                                  |                                                 |          |
 | STYLE-01                                 | Style | Playwright | AC-10        | Primary buttons use Zen Green colors (`#006B3C` bg, white text)                                                                  | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | STYLE-02                                 | Style | Playwright | —            | Form validation states and required indicators render correctly                                                                  | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
@@ -88,21 +88,21 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 
 ## 9.2 AC ↔ Test Coverage Matrix
 
-| AC    | Description                                             | Covered By Tests                                                                              |        Status        |
-| ----- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | :------------------: |
+| AC    | Description                                             | Covered By Tests                                                                                      |        Status        |
+| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | :------------------: |
 | AC-01 | Create ticket → save + show ticket number               | UNIT-01, UNIT-02, API-05, API-06, API-07, API-08, API-09, API-10, UI-04, UI-05, UI-06, E2E-01, E2E-06 | **Covered & Passed** |
-| AC-02 | No requester selected → show selection screen           | UI-02, UI-03, E2E-01, E2E-06                                                                  | **Covered & Passed** |
-| AC-03 | Ownership enforcement (cross-requester blocked)         | API-14, API-18, API-25, API-31, E2E-06                                                        | **Covered & Passed** |
-| AC-04 | Only active requesters shown                            | API-01, API-02, UI-01, E2E-06                                                                 | **Covered & Passed** |
-| AC-05 | File > 5MB rejected on frontend and backend             | UNIT-04, API-21, UI-12, E2E-03, E2E-06                                                        | **Covered & Passed** |
-| AC-06 | 0 tickets → empty state                                 | API-13, UI-08, E2E-06                                                                         | **Covered & Passed** |
-| AC-07 | Soft-remove attachment + block download                 | API-28, API-29, API-30, UI-14, UI-15, E2E-03, E2E-06                                          | **Covered & Passed** |
-| AC-08 | Pagination works correctly                              | API-11, API-12, UI-10, E2E-02, E2E-05, E2E-06                                                 | **Covered & Passed** |
-| AC-09 | Requester switching updates ticket context              | E2E-04, E2E-06                                                                                | **Covered & Passed** |
-| AC-10 | Responsive layout (mobile/tablet/desktop)               | STYLE-01, STYLE-03, STYLE-04, STYLE-05, E2E-06                                                | **Covered & Passed** |
-| AC-11 | API failure → user-friendly error + form data preserved | API-32, API-33 (automated API); UI-06 / UI-07, E2E-06                                         | **Covered & Passed** |
-| BR-06 | MIME type validation                                    | UNIT-05, API-22, UI-13                                                                        | **Covered & Passed** |
-| BR-12 | Safe filename sanitization                              | UNIT-03                                                                                       | **Covered & Passed** |
+| AC-02 | No requester selected → show selection screen           | UI-02, UI-03, E2E-01, E2E-06                                                                          | **Covered & Passed** |
+| AC-03 | Ownership enforcement (cross-requester blocked)         | API-14, API-18, API-25, API-31, E2E-06                                                                | **Covered & Passed** |
+| AC-04 | Only active requesters shown                            | API-01, API-02, UI-01, E2E-06                                                                         | **Covered & Passed** |
+| AC-05 | File > 5MB rejected on frontend and backend             | UNIT-04, API-21, UI-12, E2E-03, E2E-06                                                                | **Covered & Passed** |
+| AC-06 | 0 tickets → empty state                                 | API-13, UI-08, E2E-06                                                                                 | **Covered & Passed** |
+| AC-07 | Soft-remove attachment + block download                 | API-28, API-29, API-30, UI-14, UI-15, E2E-03, E2E-06                                                  | **Covered & Passed** |
+| AC-08 | Pagination works correctly                              | API-11, API-12, UI-10, E2E-02, E2E-05, E2E-06                                                         | **Covered & Passed** |
+| AC-09 | Requester switching updates ticket context              | E2E-04, E2E-06                                                                                        | **Covered & Passed** |
+| AC-10 | Responsive layout (mobile/tablet/desktop)               | STYLE-01, STYLE-03, STYLE-04, STYLE-05, E2E-06                                                        | **Covered & Passed** |
+| AC-11 | API failure → user-friendly error + form data preserved | API-32, API-33 (automated API); UI-06 / UI-07, E2E-06                                                 | **Covered & Passed** |
+| BR-06 | MIME type validation                                    | UNIT-05, API-22, UI-13                                                                                | **Covered & Passed** |
+| BR-12 | Safe filename sanitization                              | UNIT-03                                                                                               | **Covered & Passed** |
 
 ---
 
@@ -129,6 +129,7 @@ npx playwright test
 ```
 
 _(หรือรันแยกแต่ละไฟล์:_
+
 - _Full E2E Flow: `npx playwright test e2e/lab-02/requester-ticket-flow.spec.ts`_
 - _Responsive Visual Check: `npx playwright test e2e/lab-02/visual-check.spec.ts`_
 - _Scenario Screenshots Suite: `npx playwright test e2e/lab-02/scenario-screenshots.spec.ts`)_
