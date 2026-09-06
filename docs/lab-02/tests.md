@@ -78,6 +78,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 | E2E-03                                   | E2E   | Playwright | AC-05, AC-07 | Ticket Detail screen with attachment panel renders and is interactive                                                            | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | E2E-04                                   | E2E   | Playwright | AC-09        | Requester identity simulation initializes and transitions smoothly to My Tickets                                                 | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | E2E-05                                   | E2E   | Playwright | AC-08        | Search, filters, sort, and action buttons are accessible across all screen sizes                                                 | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
+| E2E-06                                   | E2E   | Playwright | AC-01..11    | Scenario screenshots capture (validation error, invalid attachment, 500 error, success, requester isolation, soft-remove, etc.)  | `e2e/lab-02/scenario-screenshots.spec.ts`       | **Pass** |
 | **UI Style & Responsive Tests**          |       |            |              |                                                                                                                                  |                                                 |          |
 | STYLE-01                                 | Style | Playwright | AC-10        | Primary buttons use Zen Green colors (`#006B3C` bg, white text)                                                                  | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
 | STYLE-02                                 | Style | Playwright | —            | Form validation states and required indicators render correctly                                                                  | `e2e/lab-02/visual-check.spec.ts`               | **Pass** |
@@ -87,21 +88,21 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 
 ## 9.2 AC ↔ Test Coverage Matrix
 
-| AC    | Description                                             | Covered By Tests                                                                              |        Status        |
-| ----- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | :------------------: |
-| AC-01 | Create ticket → save + show ticket number               | UNIT-01, UNIT-02, API-05, API-06, API-07, API-08, API-09, API-10, UI-04, UI-05, UI-06, E2E-01 | **Covered & Passed** |
-| AC-02 | No requester selected → show selection screen           | UI-02, UI-03, E2E-01                                                                          | **Covered & Passed** |
-| AC-03 | Ownership enforcement (cross-requester blocked)         | API-14, API-18, API-25, API-31                                                                | **Covered & Passed** |
-| AC-04 | Only active requesters shown                            | API-01, API-02, UI-01                                                                         | **Covered & Passed** |
-| AC-05 | File > 5MB rejected on frontend and backend             | UNIT-04, API-21, UI-12, E2E-03                                                                | **Covered & Passed** |
-| AC-06 | 0 tickets → empty state                                 | API-13, UI-08                                                                                 | **Covered & Passed** |
-| AC-07 | Soft-remove attachment + block download                 | API-28, API-29, API-30, UI-14, UI-15, E2E-03                                                  | **Covered & Passed** |
-| AC-08 | Pagination works correctly                              | API-11, API-12, UI-10, E2E-02, E2E-05                                                         | **Covered & Passed** |
-| AC-09 | Requester switching updates ticket context              | E2E-04                                                                                        | **Covered & Passed** |
-| AC-10 | Responsive layout (mobile/tablet/desktop)               | STYLE-01, STYLE-03, STYLE-04, STYLE-05                                                        | **Covered & Passed** |
-| AC-11 | API failure → user-friendly error + form data preserved | API-32, API-33 (automated API); UI-06 / UI-07                                                 | **Covered & Passed** |
-| BR-06 | MIME type validation                                    | UNIT-05, API-22, UI-13                                                                        | **Covered & Passed** |
-| BR-12 | Safe filename sanitization                              | UNIT-03                                                                                       | **Covered & Passed** |
+| AC    | Description                                             | Covered By Tests                                                                                      |        Status        |
+| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | :------------------: |
+| AC-01 | Create ticket → save + show ticket number               | UNIT-01, UNIT-02, API-05, API-06, API-07, API-08, API-09, API-10, UI-04, UI-05, UI-06, E2E-01, E2E-06 | **Covered & Passed** |
+| AC-02 | No requester selected → show selection screen           | UI-02, UI-03, E2E-01, E2E-06                                                                          | **Covered & Passed** |
+| AC-03 | Ownership enforcement (cross-requester blocked)         | API-14, API-18, API-25, API-31, E2E-06                                                                | **Covered & Passed** |
+| AC-04 | Only active requesters shown                            | API-01, API-02, UI-01, E2E-06                                                                         | **Covered & Passed** |
+| AC-05 | File > 5MB rejected on frontend and backend             | UNIT-04, API-21, UI-12, E2E-03, E2E-06                                                                | **Covered & Passed** |
+| AC-06 | 0 tickets → empty state                                 | API-13, UI-08, E2E-06                                                                                 | **Covered & Passed** |
+| AC-07 | Soft-remove attachment + block download                 | API-28, API-29, API-30, UI-14, UI-15, E2E-03, E2E-06                                                  | **Covered & Passed** |
+| AC-08 | Pagination works correctly                              | API-11, API-12, UI-10, E2E-02, E2E-05, E2E-06                                                         | **Covered & Passed** |
+| AC-09 | Requester switching updates ticket context              | E2E-04, E2E-06                                                                                        | **Covered & Passed** |
+| AC-10 | Responsive layout (mobile/tablet/desktop)               | STYLE-01, STYLE-03, STYLE-04, STYLE-05, E2E-06                                                        | **Covered & Passed** |
+| AC-11 | API failure → user-friendly error + form data preserved | API-32, API-33 (automated API); UI-06 / UI-07, E2E-06                                                 | **Covered & Passed** |
+| BR-06 | MIME type validation                                    | UNIT-05, API-22, UI-13                                                                                | **Covered & Passed** |
+| BR-12 | Safe filename sanitization                              | UNIT-03                                                                                               | **Covered & Passed** |
 
 ---
 
@@ -111,7 +112,7 @@ Test files: `server/test/lab-02/`, `client/test/lab-02/`, และ `e2e/lab-02/
 
 ```bash
 cd server
-npx vitest run
+npx vitest run --fileParallelism=false
 ```
 
 ### Frontend (UI Component Tests):
@@ -127,7 +128,11 @@ npx vitest run
 npx playwright test
 ```
 
-_(หรือรันแยกแต่ละไฟล์: `npx playwright test e2e/lab-02/requester-ticket-flow.spec.ts` และ `npx playwright test e2e/lab-02/visual-check.spec.ts`)_
+_(หรือรันแยกแต่ละไฟล์:_
+
+- _Full E2E Flow: `npx playwright test e2e/lab-02/requester-ticket-flow.spec.ts`_
+- _Responsive Visual Check: `npx playwright test e2e/lab-02/visual-check.spec.ts`_
+- _Scenario Screenshots Suite: `npx playwright test e2e/lab-02/scenario-screenshots.spec.ts`)_
 
 ---
 
@@ -148,7 +153,7 @@ _(หรือรันแยกแต่ละไฟล์: `npx playwright tes
 
  Test Files  7 passed (7)
       Tests  50 passed (50)
-   Duration  3.50s
+   Duration  6.05s
 ```
 
 ### 2. Client Vitest Results (24 of 24 Passed — 0 Skipped)
@@ -164,33 +169,47 @@ _(หรือรันแยกแต่ละไฟล์: `npx playwright tes
 
  Test Files  5 passed (5)
       Tests  24 passed (24)
-   Duration  2.15s
+   Duration  25.04s
 ```
 
-### 3. Playwright E2E & Visual Responsive Results (4 of 4 Passed)
+### 3. Playwright E2E & Visual Responsive Results (5 of 5 Passed — 0 Skipped)
 
 ```text
-Running 4 tests using 2 workers
+Running 5 tests using 3 workers
 
-  ✓  1 [chromium] › e2e\lab-02\requester-ticket-flow.spec.ts:11:7 › Requester Ticket Full Flow (E2E) › completes full end-to-end flow: select requester -> create ticket -> verify in My Tickets -> verify Ticket Detail (1.3s)
-  ✓  2 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - desktop (1280x800) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.2s)
-  ✓  3 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - tablet (820x1024) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (4.6s)
-  ✓  4 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - mobile (375x812) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.2s)
+  ✓  1 [chromium] › e2e\lab-02\requester-ticket-flow.spec.ts:11:7 › Requester Ticket Full Flow (E2E) › completes full end-to-end flow: select requester -> create ticket -> verify in My Tickets -> verify Ticket Detail (1.1s)
+  ✓  2 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - desktop (1280x800) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.0s)
+  ✓  3 [chromium] › e2e\lab-02\scenario-screenshots.spec.ts:18:7 › Scenario Screenshots Capture › captures all required scenario screenshots for Lab 2 (9.3s)
+  ✓  4 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - tablet (820x1024) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (4.5s)
+  ✓  5 [chromium] › e2e\lab-02\visual-check.spec.ts:25:9 › Visual Check - mobile (375x812) › captures screenshots for My Tickets, Create Ticket, and Ticket Detail (5.3s)
 
-  4 passed (20.8s)
+  5 passed (18.4s)
 ```
 
-### 4. Generated Screenshot Artifacts (All 9 Produced)
+### 4. Generated Screenshot Artifacts (All 21 Produced)
 
+- **Requester Selection**:
+  - `artifacts/lab-02/screenshots/requester-select/selection-screen.png`
 - **Create Ticket**:
+  - `artifacts/lab-02/screenshots/create-ticket/validation-error.png`
+  - `artifacts/lab-02/screenshots/create-ticket/invalid-attachment.png`
+  - `artifacts/lab-02/screenshots/create-ticket/api-failure.png`
+  - `artifacts/lab-02/screenshots/create-ticket/success-state.png`
   - `artifacts/lab-02/screenshots/create-ticket/desktop.png`
   - `artifacts/lab-02/screenshots/create-ticket/tablet.png`
   - `artifacts/lab-02/screenshots/create-ticket/mobile.png`
 - **My Tickets**:
+  - `artifacts/lab-02/screenshots/my-tickets/requester-a.png`
+  - `artifacts/lab-02/screenshots/my-tickets/requester-b.png`
+  - `artifacts/lab-02/screenshots/my-tickets/search-filter.png`
+  - `artifacts/lab-02/screenshots/my-tickets/no-results.png`
+  - `artifacts/lab-02/screenshots/my-tickets/api-failure.png`
   - `artifacts/lab-02/screenshots/my-tickets/desktop.png`
   - `artifacts/lab-02/screenshots/my-tickets/tablet.png`
   - `artifacts/lab-02/screenshots/my-tickets/mobile.png`
 - **Ticket Detail**:
+  - `artifacts/lab-02/screenshots/ticket-detail/soft-remove-dialog.png`
+  - `artifacts/lab-02/screenshots/ticket-detail/attachment-removed.png`
   - `artifacts/lab-02/screenshots/ticket-detail/desktop.png`
   - `artifacts/lab-02/screenshots/ticket-detail/tablet.png`
   - `artifacts/lab-02/screenshots/ticket-detail/mobile.png`

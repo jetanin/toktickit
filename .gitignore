@@ -5,3 +5,5 @@ build/
 playwright-report/
 test-results/
 server/uploads/
+docs/lab-02/generate_report.py
+docs/lab-02/report_lab02_67070501011.docx

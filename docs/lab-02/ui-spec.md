@@ -119,17 +119,30 @@ Completed audit against Section 8.8 of the labsheet across all 3 viewports (Desk
 | **Filters, pagination, and attachment controls usable at every viewport** | **PASS** | Filter bar collapses into touch-friendly cards on mobile and grids on tablet/desktop; attachment card stacks neatly below ticket info on tablet/mobile and sits beside on desktop. (`artifacts/lab-02/screenshots/my-tickets/{desktop,tablet,mobile}.png`, `artifacts/lab-02/screenshots/ticket-detail/{desktop,tablet,mobile}.png`) |
 | **Buttons are touch-friendly on mobile**                                  | **PASS** | All interactive buttons adhere to `min-height: 44px` on mobile screens per Zen Green guidelines. (`artifacts/lab-02/screenshots/{create-ticket,my-tickets,ticket-detail}/mobile.png`)                                                                                                                                                |
 
-### Generated Screenshot Artifacts (9 of 9 produced)
+### Generated Screenshot Artifacts (All 21 Produced)
 
-- **Create Ticket**:
-  - Desktop (1280x800): `artifacts/lab-02/screenshots/create-ticket/desktop.png`
-  - Tablet (820x1024): `artifacts/lab-02/screenshots/create-ticket/tablet.png`
-  - Mobile (375x812): `artifacts/lab-02/screenshots/create-ticket/mobile.png`
-- **My Tickets**:
-  - Desktop (1280x800): `artifacts/lab-02/screenshots/my-tickets/desktop.png`
-  - Tablet (820x1024): `artifacts/lab-02/screenshots/my-tickets/tablet.png`
-  - Mobile (375x812): `artifacts/lab-02/screenshots/my-tickets/mobile.png`
-- **Ticket Detail**:
-  - Desktop (1280x800): `artifacts/lab-02/screenshots/ticket-detail/desktop.png`
-  - Tablet (820x1024): `artifacts/lab-02/screenshots/ticket-detail/tablet.png`
-  - Mobile (375x812): `artifacts/lab-02/screenshots/ticket-detail/mobile.png`
+- **Requester Selection (Section 14 — Part 5)**:
+  - Selection Screen: `artifacts/lab-02/screenshots/requester-select/selection-screen.png`
+- **Create Ticket (Section 14 — Part 6)**:
+  - Inline Form Validation Error: `artifacts/lab-02/screenshots/create-ticket/validation-error.png`
+  - Invalid Attachment Error (>5MB): `artifacts/lab-02/screenshots/create-ticket/invalid-attachment.png`
+  - Server Error (500) with Form Values Preserved: `artifacts/lab-02/screenshots/create-ticket/api-failure.png`
+  - Success State with Official Ticket Number: `artifacts/lab-02/screenshots/create-ticket/success-state.png`
+  - Desktop Viewport (1280x800): `artifacts/lab-02/screenshots/create-ticket/desktop.png`
+  - Tablet Viewport (820x1024): `artifacts/lab-02/screenshots/create-ticket/tablet.png`
+  - Mobile Viewport (375x812): `artifacts/lab-02/screenshots/create-ticket/mobile.png`
+- **My Tickets (Section 14 — Part 7)**:
+  - Requester A Context (Tickets Owned): `artifacts/lab-02/screenshots/my-tickets/requester-a.png`
+  - Requester B Context (Ownership Isolation Verified): `artifacts/lab-02/screenshots/my-tickets/requester-b.png`
+  - Active Search & Category Filter: `artifacts/lab-02/screenshots/my-tickets/search-filter.png`
+  - No Matching Tickets Found Empty State: `artifacts/lab-02/screenshots/my-tickets/no-results.png`
+  - API Failure State (500 Error with Retry): `artifacts/lab-02/screenshots/my-tickets/api-failure.png`
+  - Desktop Viewport (1280x800): `artifacts/lab-02/screenshots/my-tickets/desktop.png`
+  - Tablet Viewport (820x1024): `artifacts/lab-02/screenshots/my-tickets/tablet.png`
+  - Mobile Viewport (375x812): `artifacts/lab-02/screenshots/my-tickets/mobile.png`
+- **Ticket Detail (Section 14 — Part 8)**:
+  - Soft-Removal Modal with Reason Selection: `artifacts/lab-02/screenshots/ticket-detail/soft-remove-dialog.png`
+  - Soft-Removed Attachment State (Strikethrough & Disabled Download): `artifacts/lab-02/screenshots/ticket-detail/attachment-removed.png`
+  - Desktop Viewport (1280x800): `artifacts/lab-02/screenshots/ticket-detail/desktop.png`
+  - Tablet Viewport (820x1024): `artifacts/lab-02/screenshots/ticket-detail/tablet.png`
+  - Mobile Viewport (375x812): `artifacts/lab-02/screenshots/ticket-detail/mobile.png`
