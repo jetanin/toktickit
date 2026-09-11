@@ -159,8 +159,10 @@ describe('TicketDetail Screen', () => {
       return Promise.reject(new Error('Unknown'));
     });
 
-    // Mock window.URL
+    // Mock window.URL and anchor click
     window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    window.URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     render(<TicketDetail requester={mockRequester} ticketId={101} onBack={() => {}} />);
     await waitFor(() => screen.getByText('vpn-error.png'));
