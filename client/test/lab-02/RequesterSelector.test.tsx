@@ -71,6 +71,7 @@ describe('RequesterSelector', () => {
   });
 
   it('shows error state with retry button when API fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     // First call fails
     global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network error'));
 
