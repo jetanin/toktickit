@@ -1,8 +1,12 @@
 /**
  * TokTickIT Lab 3 - Data Migration Script
  * 
- * Purpose:
- * Converts legacy DevelopmentRequester rows into the Lab 3 User table.
+ * Architectural Roles:
+ * 1. Canonical Deploy Pipeline: `migration.sql` executes atomically during `prisma migrate deploy`
+ *    in PostgreSQL before foreign keys are enforced, guaranteeing zero downtime and atomic data migration.
+ * 2. Standalone Application-Level Maintenance: This script (`data-migration.ts`) is designed for
+ *    programmatic data inspection, repair, or standalone re-execution via Prisma Client (`npx tsx prisma/data-migration.ts`).
+ * 3. Development Seed: `seed.ts` provisions reference accounts and test data for local development environments.
  * 
  * Rules:
  * - role = 'REQUESTER'

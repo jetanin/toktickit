@@ -86,6 +86,9 @@ CREATE INDEX "Ticket_ticketOwnerId_idx" ON "Ticket"("ticketOwnerId");
 -- CreateIndex
 CREATE INDEX "Ticket_currentStatus_itPriority_idx" ON "Ticket"("currentStatus", "itPriority");
 
+-- CreateIndex (Ensured for Lab 3 composite query optimization; safe if established in Lab 2)
+CREATE INDEX IF NOT EXISTS "Attachment_ticketId_removedAt_idx" ON "Attachment"("ticketId", "removedAt");
+
 -- Migrate existing DevelopmentRequester rows into User
 INSERT INTO "User" ("id", "name", "email", "passwordHash", "role", "isActive", "mustChangePassword", "createdAt", "updatedAt")
 SELECT

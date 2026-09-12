@@ -43,6 +43,13 @@ describe('Lab 3: User Schema Evolution & Data Migration Suite', () => {
       const isMatch = await bcrypt.compare('Password123!', sampleUser!.passwordHash);
       expect(isMatch, 'Password hash must verify against local dev password Password123!').toBe(true);
     });
+
+    it('should verify that the canonical bcrypt hash string in migration.sql matches Password123!', async () => {
+      // Exact hash string embedded in server/prisma/migrations/20260912100459_lab3_user_migration/migration.sql
+      const CANONICAL_MIGRATION_SQL_HASH = '$2b$10$/JUXYn89A7GPKkDiCe1auO9RrwKByKrUb1olCw1bnMRS5HiFECVG6';
+      const isMatch = await bcrypt.compare('Password123!', CANONICAL_MIGRATION_SQL_HASH);
+      expect(isMatch, 'The exact bcrypt hash in migration.sql must decrypt to Password123!').toBe(true);
+    });
   });
 
   describe('2. Ticket Data & Ownership Preservation', () => {
@@ -91,6 +98,13 @@ describe('Lab 3: User Schema Evolution & Data Migration Suite', () => {
       expect(activeAttachments.length).toBeGreaterThanOrEqual(2);
       expect(activeAttachments.some((a) => a.storagePath === 'test-attachment-1.png')).toBe(true);
       expect(activeAttachments.some((a) => a.storagePath === 'test-attachment-2.pdf')).toBe(true);
+    });
+
+    it('should confirm Attachment composite index Attachment_ticketId_removedAt_idx exists in PostgreSQL', async () => {
+      const indexes = await prisma.$queryRawUnsafe<Array<{ indexname: string }>>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'Attachment' AND indexname = 'Attachment_ticketId_removedAt_idx';`
+      );
+      expect(indexes.length, 'Attachment_ticketId_removedAt_idx must exist in database').toBe(1);
     });
   });
 
