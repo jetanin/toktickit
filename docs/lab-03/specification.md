@@ -292,7 +292,7 @@ The TokTickIT interface adheres strictly to the **Zen Green** design language (`
 | authorId (FK)  | | authorId (FK)  | +-------------------+
 | content        | | content        | | id (PK)           |
 | createdAt      | | createdAt      | | ticketId (FK)     |
-+----------------+ +----------------+ | filename          |
++----------------+ +----------------+ | storagePath (UQ)   |
                                       | originalFilename  |
                                       | mimeType          |
                                       | size              |
@@ -345,11 +345,11 @@ The TokTickIT interface adheres strictly to the **Zen Green** design language (`
 
 - `id` (Int, PK, autoincrement)
 - `ticketId` (Int, FK -> `Ticket.id`, cascade delete)
-- `filename` (VarChar 255, NOT NULL)
+- `storagePath` (VarChar 255, UNIQUE, NOT NULL)
 - `originalFilename` (VarChar 255, NOT NULL)
 - `mimeType` (VarChar 100, NOT NULL)
 - `size` (Int, NOT NULL)
-- `removalReason` (VarChar 255, Nullable)
+- `removalReason` (VarChar 300, Nullable)
 - `removedAt` (DateTime, Nullable)
 - `createdAt` (DateTime, default `now()`)
 
@@ -378,7 +378,7 @@ The TokTickIT interface adheres strictly to the **Zen Green** design language (`
    - Add new columns to `Ticket` (`ticketOwnerId`, `itPriority`, `resolutionSummary`, `requesterResolutionPending`).
    - Create tables `PublicComment` and `InternalNote`.
    - Preserve existing `Attachment`, `Category`, and `RelatedSystem` records.
-   - Safely drop or archive `DevelopmentRequester` table.
+   - Retain `DevelopmentRequester` table (read-only archive) to guarantee backward compatibility with existing Lab 2 automated test helpers.
 2. **Client Cleanup**:
    - Delete `RequesterSelector.tsx`, `RequesterSelector.test.tsx`, and session/localStorage mockups.
    - Replace with real auth store / context connected to `GET /api/auth/me`.

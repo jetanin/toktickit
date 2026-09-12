@@ -86,11 +86,36 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit?schema=pub
 npx prisma migrate dev
 ```
 
-รัน seed เพื่อใส่ข้อมูลหมวดหมู่เริ่มต้น (Account and Access, Hardware, Software, Network):
+รัน data migration (สำหรับย้ายข้อมูลจาก DevelopmentRequester ไปยังตาราง User):
+
+```bash
+npx tsx prisma/data-migration.ts
+```
+
+รัน seed เพื่อใส่ข้อมูลผู้ใช้และตั๋วเริ่มต้นสำหรับการพัฒนา (Lab 3):
 
 ```bash
 npx prisma db seed
 ```
+
+#### บัญชีผู้ใช้เริ่มต้นสำหรับการทดสอบในเครื่อง (Local Dev Accounts)
+
+> ⚠️ **หมายเหตุ**: รหัสผ่านเหล่านี้ใช้เฉพาะสำหรับสภาพแวดล้อม Local Development เท่านั้น
+
+| อีเมล                          | บทบาท (Role)  | สถานะ (Active) | ต้องเปลี่ยนรหัสผ่านครั้งแรก | รหัสผ่านเริ่มต้น |
+| :----------------------------- | :------------ | :------------: | :-------------------------: | :--------------- |
+| `admin@toktick.it`             | ADMINISTRATOR |      Yes       |             No              | `Admin1234!`     |
+| `admin2@toktick.it`            | ADMINISTRATOR |      Yes       |             No              | `Admin1234!`     |
+| `sarah.it@toktick.it`          | IT_STAFF      |      Yes       |             No              | `Password123!`   |
+| `michael.it@toktick.it`        | IT_STAFF      |      Yes       |             No              | `Password123!`   |
+| `david.it@toktick.it`          | IT_STAFF      |      Yes       |             No              | `Password123!`   |
+| `kevin.it@toktick.it`          | IT_STAFF      |     **No**     |             No              | `Password123!`   |
+| `jennifer.anderson@toktick.it` | REQUESTER     |      Yes       |             No              | `Password123!`   |
+| `alex.thompson@toktick.it`     | REQUESTER     |      Yes       |           **Yes**           | `Password123!`   |
+| `lisa.martinez@toktick.it`     | REQUESTER     |      Yes       |             No              | `Password123!`   |
+| `amanda.clark@toktick.it`      | REQUESTER     |      Yes       |             No              | `Password123!`   |
+| `robert.wilson@toktick.it`     | REQUESTER     |     **No**     |             No              | `Password123!`   |
+| _บัญชีเดิม (@kmutt.ac.th)_     | REQUESTER     |    ตามเดิม     |           **Yes**           | `Password123!`   |
 
 สตาร์ท backend server:
 
