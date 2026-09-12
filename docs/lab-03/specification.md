@@ -141,14 +141,14 @@ The IT Service Desk organization requires a unified, secure system with real ide
 - **BR-07**: **Session Invalidation on Logout**: Logging out immediately invalidates the active session token/cookie on the server. Clients must purge cached state and redirect to `/login`.
 - **BR-08**: **Current User Retrieval**: `GET /api/auth/me` returns the caller's safe profile (`id`, `name`, `email`, `role`, `mustChangePassword`). Sensitive hashes are never returned.
 - **BR-09**: **Role Exclusivity**: Each user has exactly one assigned role (`REQUESTER`, `IT_STAFF`, or `ADMINISTRATOR`). Multiple roles assigned to one user are prohibited.
-- **BR-10**: **Separation of Concerns**: IT Staff manage tickets; Administrators manage user accounts. Administrators do not appear in the ticket assignment dropdown unless dual-duty IT Staff membership is explicitly configured.
+- **BR-10**: **Operational Focus & Role Separation**: IT Staff primarily manage and resolve tickets, while Administrators manage user accounts. However, in accordance with Section 4.5 of the labsheet, an active Administrator is permitted to be a Ticket Owner, claim tickets, and perform ticket operational workflows when required.
 
 ### 5.3 Ticket Ownership, Priority, and Status Rules
 
 - **BR-11**: **Ticket Assignment & Ownership**: Each ticket may have zero or one primary Ticket Owner (`ticketOwnerId`), who must be an active user with the `IT_STAFF` or `ADMINISTRATOR` role. Tickets created by Requesters start unassigned (`ticketOwnerId = null`).
 - **BR-12**: **Claiming and Reassignment**:
-  - An IT Staff member may "Claim" an unassigned ticket, setting `ticketOwnerId` to themselves. If status is `New`, status automatically advances to `Open`.
-  - An IT Staff member or Administrator may reassign a ticket to any active IT Staff user.
+  - An IT Staff member or Administrator may "Claim" an unassigned ticket, setting `ticketOwnerId` to themselves. If status is `New`, status automatically advances to `Open`.
+  - An IT Staff member or Administrator may reassign a ticket to any active IT Staff or Administrator user.
 - **BR-13**: **Dual Priority Lifecycle**:
   - `Requested Priority` remains the value submitted by the Requester at creation (`Low`, `Medium`, `High`) and is strictly read-only thereafter.
   - `IT Priority` initially copies `Requested Priority` at ticket creation.
@@ -164,16 +164,16 @@ The IT Service Desk organization requires a unified, secure system with real ide
   8. `Cancelled`: Voided or rejected request.
 - **BR-15**: **Status Transition Matrix**:
 
-| Current Status          | Permitted Next Statuses                                         | Permitted Roles | Required Data / Conditions                                 |
-| :---------------------- | :-------------------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
-| `New`                   | `Open`, `In Progress`, `Cancelled`                              | IT Staff, Admin | Claim automatically sets status to `Open`                  |
-| `Open`                  | `In Progress`, `Waiting for Requester`, `Resolved`, `Cancelled` | IT Staff, Admin | —                                                          |
-| `In Progress`           | `Waiting for Requester`, `Resolved`, `Cancelled`                | IT Staff, Admin | Non-empty `resolutionSummary` required for `Resolved`      |
-| `Waiting for Requester` | `In Progress`, `Resolved`, `Cancelled`                          | IT Staff, Admin | Requester comment automatically flags ticket back to staff |
-| `Resolved`              | `Closed`, `Reopened`                                            | IT Staff, Admin | Requester can confirm "Problem Appears Resolved"           |
-| `Closed`                | `Reopened` (within 14 days)                                     | IT Staff, Admin | Reopen reason required                                     |
-| `Reopened`              | `In Progress`, `Resolved`, `Cancelled`                          | IT Staff, Admin | —                                                          |
-| `Cancelled`             | _(Terminal State)_                                              | IT Staff, Admin | Cancellation reason required                               |
+| Current Status          | Permitted Next Statuses                                         | Permitted Roles | Required Data / Conditions                            |
+| :---------------------- | :-------------------------------------------------------------- | :-------------- | :---------------------------------------------------- |
+| `New`                   | `Open`, `In Progress`, `Cancelled`                              | IT Staff, Admin | Claim automatically sets status to `Open`             |
+| `Open`                  | `In Progress`, `Waiting for Requester`, `Resolved`, `Cancelled` | IT Staff, Admin | —                                                     |
+| `In Progress`           | `Waiting for Requester`, `Resolved`, `Cancelled`                | IT Staff, Admin | Non-empty `resolutionSummary` required for `Resolved` |
+| `Waiting for Requester` | `In Progress`, `Resolved`, `Cancelled`                          | IT Staff, Admin | —                                                     |
+| `Resolved`              | `Closed`, `Reopened`                                            | IT Staff, Admin | Requester can confirm "Problem Appears Resolved"      |
+| `Closed`                | `Reopened`                                                      | IT Staff, Admin | —                                                     |
+| `Reopened`              | `In Progress`, `Resolved`, `Cancelled`                          | IT Staff, Admin | Non-empty `resolutionSummary` required for `Resolved` |
+| `Cancelled`             | _(Terminal State)_                                              | IT Staff, Admin | —                                                     |
 
 - **BR-16**: **Resolution Summary Requirement**: Transitioning a ticket to `Resolved` requires a non-empty `resolutionSummary` (1–1,000 characters) visible to both Requester and IT Staff.
 

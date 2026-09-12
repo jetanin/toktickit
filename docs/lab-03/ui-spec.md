@@ -181,7 +181,7 @@ TokTickIT preserves and extends the **Zen Green** enterprise design language est
   - `Requester`: Read-only requester name.
   - `Requested Priority`: Read-only priority badge.
   - `Current Status`: Dropdown showing only permitted next transitions per BR-15.
-  - `Ticket Owner`: Dropdown of active IT Staff with "Claim" quick button if unassigned.
+  - `Ticket Owner`: Dropdown of active IT Staff and Administrator accounts, with "Claim" quick button if unassigned.
   - `IT Priority`: Dropdown selector (`Low`, `Medium`, `High`, `Critical`).
   - `Summary`: Read-only bold text.
   - `Description`: Read-only body text.
