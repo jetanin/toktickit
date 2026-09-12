@@ -102,6 +102,7 @@ The IT Service Desk organization requires a unified, secure system with real ide
 - **FR-13**: The system shall display a shared Ticket Queue for IT Staff with search, filters (Category, Priority, Status, Assignment), sorting, and pagination (default 10 items/page).
 - **FR-14**: The system shall allow IT Staff to view any ticket's full operational details, attachments, public comments, and internal notes.
 - **FR-15**: The system shall allow IT Staff or Administrators to claim an unassigned ticket or assign/reassign a ticket to any active IT Staff user.
+- **FR-15**: The system shall allow IT Staff or Administrators to claim an unassigned ticket or assign/reassign a ticket to any active IT Staff or Administrator user.
 - **FR-16**: The system shall allow IT Staff or Administrators to update the `IT Priority` of a ticket (`Low`, `Medium`, `High`, `Critical`).
 - **FR-17**: The system shall allow IT Staff or Administrators to transition ticket status according to the approved state transition matrix, requiring a resolution summary when marking `Resolved`.
 - **FR-18**: The system shall allow IT Staff and Administrators to create and view confidential Internal Notes on tickets.
@@ -458,6 +459,7 @@ Idempotent seed script (`prisma/seed.ts`) populating:
 - **AC-10**: Given an IT Staff user, when they navigate to the Ticket Queue, then they see all tickets across requesters with correct status badges, priorities, and assigned owners.
 - **AC-11**: Given an IT Staff user on the Ticket Queue, when they search by ticket number or summary, or filter by category/priority/status/assignment, then matching results update accurately.
 - **AC-12**: Given an IT Staff user viewing an unassigned ticket, when they click "Claim", then the ticket's owner is updated to themselves and status advances to `Open` (if previously `New`).
+- **AC-12**: Given an IT Staff or Administrator user viewing an unassigned ticket, when they click "Claim", then the ticket's owner is updated to themselves and status advances to `Open` (if previously `New`).
 - **AC-13**: Given an IT Staff user viewing a ticket, when they select a new IT Priority (`Critical`, `High`, `Medium`, `Low`), then the change is persisted and visible immediately.
 - **AC-14**: Given an IT Staff user, when they advance a ticket's status in accordance with the transition matrix, then the new status is applied; invalid status transitions are rejected with `400 Bad Request`.
 - **AC-15**: Given a ticket, when any permitted participant posts a Public Comment, then the comment appears in the chronological thread visible to Requester, IT Staff, and Admin.
