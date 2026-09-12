@@ -103,11 +103,12 @@ async function seedUsers() {
   // 4. Ensure legacy DevelopmentRequesters exist as Users with mustChangePassword=true
   const legacyRequesters = await prisma.developmentRequester.findMany();
   for (const lr of legacyRequesters) {
+    const existingById = await prisma.user.findUnique({ where: { id: lr.id } });
     await prisma.user.upsert({
       where: { email: lr.email },
       update: { name: lr.name, isActive: lr.isActive },
       create: {
-        id: lr.id,
+        ...(existingById ? {} : { id: lr.id }),
         name: lr.name,
         email: lr.email,
         passwordHash: userPasswordHash,
