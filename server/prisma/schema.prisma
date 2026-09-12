@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,6 +8,49 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  NEW
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_REQUESTER
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  name               String   @db.VarChar(100)
+  email              String   @unique @db.VarChar(255)
+  passwordHash       String   @db.VarChar(255)
+  role               Role     @default(REQUESTER)
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tickets         Ticket[]        @relation("TicketRequester")
+  assignedTickets Ticket[]        @relation("TicketOwner")
+  publicComments  PublicComment[]
+  internalNotes   InternalNote[]
+
+  @@index([role, isActive])
 }
 
 model Category {
@@ -38,19 +79,8 @@ model DevelopmentRequester {
   email     String   @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  tickets   Ticket[]
 
   @@index([isActive])
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum TicketStatus {
-  NEW
 }
 
 model Ticket {
@@ -58,7 +88,10 @@ model Ticket {
   ticketNumber String @unique
 
   requesterId Int
-  requester   DevelopmentRequester @relation(fields: [requesterId], references: [id])
+  requester   User @relation("TicketRequester", fields: [requesterId], references: [id])
+
+  ticketOwnerId Int?
+  ticketOwner   User? @relation("TicketOwner", fields: [ticketOwnerId], references: [id])
 
   categoryId Int
   category   Category @relation(fields: [categoryId], references: [id])
@@ -66,27 +99,33 @@ model Ticket {
   relatedSystemId Int
   relatedSystem   RelatedSystem @relation(fields: [relatedSystemId], references: [id])
 
-  summary           String       @db.VarChar(100)
-  description       String       @db.VarChar(1000)
-  requestedPriority Priority
-  itPriority        Priority?
-  currentStatus     TicketStatus @default(NEW)
+  summary                    String       @db.VarChar(100)
+  description                String       @db.VarChar(1000)
+  requestedPriority          Priority
+  itPriority                 Priority?
+  currentStatus              TicketStatus @default(NEW)
+  resolutionSummary          String?      @db.Text
+  requesterResolutionPending Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attachments Attachment[]
+  attachments    Attachment[]
+  publicComments PublicComment[]
+  internalNotes  InternalNote[]
 
   @@index([requesterId])
+  @@index([ticketOwnerId])
   @@index([categoryId])
   @@index([currentStatus])
+  @@index([currentStatus, itPriority])
   @@index([createdAt])
 }
 
 model Attachment {
   id       Int    @id @default(autoincrement())
   ticketId Int
-  ticket   Ticket @relation(fields: [ticketId], references: [id])
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   originalFilename String
   storagePath      String @unique
@@ -100,4 +139,28 @@ model Attachment {
 
   @@index([ticketId])
   @@index([ticketId, removedAt])
+}
+
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
 }
