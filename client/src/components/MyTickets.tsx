@@ -27,7 +27,7 @@ interface CategoryOption {
 }
 
 interface Props {
-  requester: Requester;
+  requester?: Requester;
   onViewTicket: (ticketId: number) => void;
   onCreateNew?: () => void;
 }
@@ -61,7 +61,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
   useEffect(() => {
     fetchTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, submittedSearch, category, priority, status, sort, order, requester.id]);
+  }, [page, submittedSearch, category, priority, status, sort, order, requester?.id]);
 
   const fetchCategories = async () => {
     try {
@@ -91,11 +91,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
       if (priority) query.append('priority', priority);
       if (status) query.append('status', status);
 
-      const res = await fetch(`/api/tickets?${query.toString()}`, {
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
-      });
+      const res = await fetch(`/api/tickets?${query.toString()}`);
 
       if (!res.ok) {
         throw new Error(`Failed to load tickets (Status: ${res.status})`);

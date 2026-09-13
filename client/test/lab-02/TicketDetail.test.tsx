@@ -172,10 +172,7 @@ describe('TicketDetail Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/attachments/501/download'),
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-Requester-Id': '1' }),
-        })
+        expect.stringContaining('/api/attachments/501/download')
       );
     });
   });

@@ -41,7 +41,7 @@ interface TicketDetailData {
 }
 
 interface Props {
-  requester: Requester;
+  requester?: Requester;
   ticketId: number;
   onBack: () => void;
 }
@@ -54,7 +54,7 @@ const PREDEFINED_REASONS = [
   'อื่นๆ (โปรดระบุ)',
 ];
 
-const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
+const TicketDetail: React.FC<Props> = ({ ticketId, onBack }) => {
   const [ticket, setTicket] = useState<TicketDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,11 +92,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tickets/${ticketId}`, {
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
-      });
+      const res = await fetch(`/api/tickets/${ticketId}`);
 
       if (!res.ok) {
         throw new Error(`Failed to load ticket (Status: ${res.status})`);
@@ -114,11 +110,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
 
   const fetchComments = async () => {
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
-      });
+      const res = await fetch(`/api/tickets/${ticketId}/comments`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -152,7 +144,6 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requester-Id': String(requester.id),
         },
         body: JSON.stringify({ content: trimmed }),
       });
@@ -177,9 +168,6 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
     try {
       const res = await fetch(`/api/tickets/${ticketId}/resolve-indication`, {
         method: 'PATCH',
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
       });
 
       if (!res.ok) {
@@ -239,9 +227,6 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
 
       const res = await fetch(`/api/tickets/${ticketId}/attachments`, {
         method: 'POST',
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
         body: formData,
       });
 
@@ -265,11 +250,7 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
 
   const handleDownload = async (attachmentId: number, filename: string) => {
     try {
-      const res = await fetch(`/api/attachments/${attachmentId}/download`, {
-        headers: {
-          'X-Requester-Id': String(requester.id),
-        },
-      });
+      const res = await fetch(`/api/attachments/${attachmentId}/download`);
 
       if (!res.ok) {
         throw new Error('Download failed or attachment was removed.');
@@ -307,7 +288,6 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requester-Id': String(requester.id),
         },
         body: JSON.stringify({ reason: finalReason }),
       });

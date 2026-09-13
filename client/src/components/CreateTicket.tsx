@@ -7,7 +7,7 @@ interface ReferenceOption {
 }
 
 interface Props {
-  requester: Requester;
+  requester?: Requester;
   onCancel: () => void;
   onCreated: (ticketId: number) => void;
 }
@@ -139,7 +139,6 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requester-Id': String(requester.id),
         },
         body: JSON.stringify({
           categoryId: Number(categoryId),
@@ -165,7 +164,6 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
 
           const attachRes = await fetch(`/api/tickets/${ticket.id}/attachments`, {
             method: 'POST',
-            headers: { 'X-Requester-Id': String(requester.id) },
             body: formData,
           });
 
@@ -239,9 +237,11 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
         <h2 className="h5 fw-bold mb-0" style={{ color: '#006B3C' }}>
           Create New IT Support Ticket
         </h2>
-        <span className="small text-muted">
-          Submitting as <strong>{requester.name}</strong> ({requester.email})
-        </span>
+        {requester && (
+          <span className="small text-muted">
+            Submitting as <strong>{requester.name}</strong>{requester.email ? ` (${requester.email})` : ''}
+          </span>
+        )}
       </div>
 
       <div className="card-body p-4">

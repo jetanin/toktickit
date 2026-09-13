@@ -124,8 +124,7 @@ describe('MyTickets Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('search=Monitor'),
-        expect.anything()
+        expect.stringContaining('search=Monitor')
       );
     });
   });
@@ -164,8 +163,7 @@ describe('MyTickets Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('page=2'),
-        expect.anything()
+        expect.stringContaining('page=2')
       );
     });
   });
