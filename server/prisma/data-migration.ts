@@ -101,6 +101,7 @@ export async function runDataMigration() {
         data: {
           name: requester.name,
           isActive: requester.isActive,
+          mustChangePassword: true,
         },
       });
       updatedCount++;

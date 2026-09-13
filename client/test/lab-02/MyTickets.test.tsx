@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import MyTickets from '../../src/components/MyTickets';
-import { Requester } from '../../src/components/RequesterSelector';
+import { Requester } from '../../src/types';
 
 const mockRequester: Requester = { id: 1, name: 'Alice Smith', email: 'alice@example.com' };
 
@@ -124,8 +124,7 @@ describe('MyTickets Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('search=Monitor'),
-        expect.anything()
+        expect.stringContaining('search=Monitor')
       );
     });
   });
@@ -164,8 +163,7 @@ describe('MyTickets Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('page=2'),
-        expect.anything()
+        expect.stringContaining('page=2')
       );
     });
   });

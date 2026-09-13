@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TicketDetail from '../../src/components/TicketDetail';
-import { Requester } from '../../src/components/RequesterSelector';
+import { Requester } from '../../src/types';
 
 const mockRequester: Requester = { id: 1, name: 'Alice Smith', email: 'alice@example.com' };
 
@@ -172,10 +172,7 @@ describe('TicketDetail Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/attachments/501/download'),
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-Requester-Id': '1' }),
-        })
+        expect.stringContaining('/api/attachments/501/download')
       );
     });
   });

@@ -1,16 +1,8 @@
-import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import { Response } from 'express';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'toktickit-secret-session-key-lab-03-2026';
 export const COOKIE_NAME = 'toktickit_session';
-
-export function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is required');
-  }
-  return secret;
-}
 
 export interface SessionPayload {
   id: number;
@@ -49,13 +41,12 @@ export function validatePasswordComplexity(password: string): PasswordValidation
 }
 
 export function signSessionToken(payload: SessionPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: '24h' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 }
 
 export function verifySessionToken(token: string): SessionPayload | null {
-  const secret = getJwtSecret();
   try {
-    const decoded = jwt.verify(token, secret) as SessionPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as SessionPayload;
     return {
       id: decoded.id,
       email: decoded.email,

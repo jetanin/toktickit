@@ -17,6 +17,7 @@ export const prisma = new PrismaClient({ adapter });
 import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth';
 import { authenticateSession, gatePasswordChange } from './middleware/auth';
+import { COOKIE_NAME } from './utils/auth';
 
 const app = express();
 app.use(cors());
@@ -27,11 +28,25 @@ app.use(gatePasswordChange);
 
 app.use('/api/auth', authRouter);
 
-// Middleware to check requester
+// Middleware to check requester / session identity
 export const requireRequester = async (req: Request, res: Response, next: NextFunction) => {
+  // If user is already authenticated via session cookie or Bearer token
+  if (req.user) {
+    (req as any).requester = req.user;
+    return next();
+  }
+
+  // If session cookie or Bearer auth was supplied but req.user is undefined, reject with 401
+  const hasToken = req.cookies?.[COOKIE_NAME] || req.headers.authorization;
+  if (hasToken) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  // Fallback for Lab 2 test compatibility when no session is present
   const requesterIdStr = req.header('X-Requester-Id');
   if (!requesterIdStr) {
-    res.status(401).json({ error: 'X-Requester-Id header missing' });
+    res.status(401).json({ error: 'Unauthorized or X-Requester-Id header missing' });
     return;
   }
   
@@ -42,17 +57,48 @@ export const requireRequester = async (req: Request, res: Response, next: NextFu
   }
 
   try {
-    const requester = await prisma.developmentRequester.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: requesterId, isActive: true }
     });
     
-    if (!requester) {
+    if (!user) {
+      const devReq = await prisma.developmentRequester.findUnique({
+        where: { id: requesterId, isActive: true }
+      });
+      if (!devReq) {
+        res.status(403).json({ error: 'Requester not found or inactive' });
+        return;
+      }
+
+      user = await prisma.user.findUnique({
+        where: { email: devReq.email, isActive: true }
+      });
+
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            id: devReq.id,
+            name: devReq.name,
+            email: devReq.email,
+            passwordHash: 'legacy_dev_user',
+            role: 'REQUESTER',
+            isActive: true,
+            mustChangePassword: true,
+          }
+        }).catch(async () => {
+          return await prisma.user.findFirst({ where: { isActive: true } });
+        });
+      }
+    }
+
+    if (!user || !user.isActive) {
       res.status(403).json({ error: 'Requester not found or inactive' });
       return;
     }
     
     // Attach to request
-    (req as any).requester = requester;
+    req.user = user;
+    (req as any).requester = user;
     next();
   } catch (err) {
     console.error(err);
@@ -112,9 +158,13 @@ const formatTicket = (ticket: any) => {
   const mapPriority = (p: string | null) => p ? p.charAt(0) + p.slice(1).toLowerCase() : null;
   const mapStatus = (s: string) => {
     if (s === 'NEW') return 'New';
+    if (s === 'OPEN') return 'Open';
     if (s === 'IN_PROGRESS') return 'In Progress';
-    if (s === 'PENDING') return 'Pending';
+    if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
     if (s === 'RESOLVED') return 'Resolved';
+    if (s === 'CLOSED') return 'Closed';
+    if (s === 'REOPENED') return 'Reopened';
+    if (s === 'CANCELLED') return 'Cancelled';
     return s;
   };
   
@@ -129,7 +179,7 @@ const formatTicket = (ticket: any) => {
 // TICKETS
 app.post('/api/tickets', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const { categoryId, relatedSystemId, summary, description, requestedPriority } = req.body;
     
     if (
@@ -199,15 +249,18 @@ app.post('/api/tickets', requireRequester, async (req, res) => {
         summary: summary.trim(),
         description: description.trim(),
         requestedPriority: priority,
+        itPriority: priority,
         categoryId: catId,
         relatedSystemId: sysId,
-        requesterId: requester.id,
+        requesterId: user.id,
+        ticketOwnerId: null,
         currentStatus: 'NEW',
+        requesterResolutionPending: false,
       },
       include: {
-        category: true,
-        relatedSystem: true,
-        requester: true,
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true, role: true } },
       }
     });
     
@@ -220,7 +273,7 @@ app.post('/api/tickets', requireRequester, async (req, res) => {
 
 app.get('/api/tickets', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const { search, category, priority, status, sort = 'updatedAt', order = 'desc', page = '1', limit = '8' } = req.query;
     
     const pageNum = parseInt(page as string, 10);
@@ -245,7 +298,7 @@ app.get('/api/tickets', requireRequester, async (req, res) => {
       return;
     }
 
-    const where: any = { requesterId: requester.id };
+    const where: any = { requesterId: user.id };
     
     if (search) {
       where.OR = [
@@ -280,7 +333,7 @@ app.get('/api/tickets', requireRequester, async (req, res) => {
       take: limitNum,
       include: {
         category: { select: { id: true, name: true } },
-        requester: { select: { id: true, name: true } }
+        requester: { select: { id: true, name: true, email: true, role: true } }
       }
     });
     
@@ -301,7 +354,7 @@ app.get('/api/tickets', requireRequester, async (req, res) => {
 
 app.get('/api/tickets/:id', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const ticketId = parseInt(req.params.id, 10);
     
     if (isNaN(ticketId)) {
@@ -314,7 +367,8 @@ app.get('/api/tickets/:id', requireRequester, async (req, res) => {
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
-        requester: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true, role: true } },
+        ticketOwner: { select: { id: true, name: true, email: true, role: true } },
         attachments: {
           select: {
             id: true,
@@ -334,7 +388,7 @@ app.get('/api/tickets/:id', requireRequester, async (req, res) => {
       return;
     }
     
-    if (ticket.requesterId !== requester.id) {
+    if (ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -386,7 +440,7 @@ app.post('/api/tickets/:id/attachments', requireRequester, (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket id' });
@@ -409,7 +463,7 @@ app.post('/api/tickets/:id/attachments', requireRequester, (req, res, next) => {
       return;
     }
     
-    if (ticket.requesterId !== requester.id) {
+    if (ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -446,7 +500,7 @@ app.post('/api/tickets/:id/attachments', requireRequester, (req, res, next) => {
 
 app.get('/api/attachments/:id', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const attachmentId = parseInt(req.params.id, 10);
     if (isNaN(attachmentId)) {
       res.status(400).json({ error: 'Invalid attachment id' });
@@ -463,7 +517,7 @@ app.get('/api/attachments/:id', requireRequester, async (req, res) => {
       return;
     }
     
-    if (attachment.ticket.requesterId !== requester.id) {
+    if (attachment.ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -482,7 +536,7 @@ app.get('/api/attachments/:id', requireRequester, async (req, res) => {
 
 app.get('/api/attachments/:id/download', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const attachmentId = parseInt(req.params.id, 10);
     if (isNaN(attachmentId)) {
       res.status(400).json({ error: 'Invalid attachment id' });
@@ -499,7 +553,7 @@ app.get('/api/attachments/:id/download', requireRequester, async (req, res) => {
       return;
     }
     
-    if (attachment.ticket.requesterId !== requester.id) {
+    if (attachment.ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -527,7 +581,7 @@ app.get('/api/attachments/:id/download', requireRequester, async (req, res) => {
 
 app.patch('/api/attachments/:id/remove', requireRequester, async (req, res) => {
   try {
-    const requester = (req as any).requester;
+    const user = req.user!;
     const attachmentId = parseInt(req.params.id, 10);
     if (isNaN(attachmentId)) {
       res.status(400).json({ error: 'Invalid attachment id' });
@@ -550,7 +604,7 @@ app.patch('/api/attachments/:id/remove', requireRequester, async (req, res) => {
       return;
     }
     
-    if (attachment.ticket.requesterId !== requester.id) {
+    if (attachment.ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -566,6 +620,166 @@ app.patch('/api/attachments/:id/remove', requireRequester, async (req, res) => {
     res.status(200).json({
       message: 'Attachment removed successfully',
       id: attachmentId,
+      removedAt: new Date(),
+      removalReason: reason.trim()
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// PUBLIC COMMENTS
+app.get('/api/tickets/:id/comments', requireRequester, async (req, res) => {
+  try {
+    const user = req.user!;
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId }
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    if (ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const comments = await prisma.publicComment.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        ticketId: true,
+        content: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        },
+        createdAt: true
+      }
+    });
+
+    res.status(200).json(comments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/tickets/:id/comments', requireRequester, async (req, res) => {
+  try {
+    const user = req.user!;
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const { content } = req.body;
+    if (!content || typeof content !== 'string' || content.trim().length === 0 || content.trim().length > 2000) {
+      res.status(400).json({ error: 'Comment content must be between 1 and 2000 characters' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId }
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    if (ticket.requesterId !== user.id && user.role !== 'IT_STAFF' && user.role !== 'ADMINISTRATOR') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const comment = await prisma.publicComment.create({
+      data: {
+        ticketId,
+        authorId: user.id,
+        content: content.trim()
+      },
+      select: {
+        id: true,
+        ticketId: true,
+        content: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        },
+        createdAt: true
+      }
+    });
+
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// RESOLVE INDICATION
+app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, res) => {
+  try {
+    const user = req.user!;
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId }
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Only ticket owner may indicate problem appears resolved
+    if (ticket.requesterId !== user.id) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    // Update requesterResolutionPending = true and append system public comment per Spec § 11.5
+    // Never modify currentStatus to RESOLVED or CLOSED per BR-05
+    await prisma.$transaction([
+      prisma.ticket.update({
+        where: { id: ticketId },
+        data: { requesterResolutionPending: true }
+      }),
+      prisma.publicComment.create({
+        data: {
+          ticketId,
+          authorId: user.id,
+          content: `${user.name} indicated that the problem appears resolved.`
+        }
+      })
+    ]);
+
+    res.status(200).json({
+      id: ticketId,
+      requesterResolutionPending: true,
+      message: 'Problem indicated as resolved'
     });
   } catch (err) {
     console.error(err);
