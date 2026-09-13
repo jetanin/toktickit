@@ -14,9 +14,18 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
 
+import cookieParser from 'cookie-parser';
+import authRouter from './routes/auth';
+import { authenticateSession, gatePasswordChange } from './middleware/auth';
+
 const app = express();
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
+app.use(authenticateSession);
+app.use(gatePasswordChange);
+
+app.use('/api/auth', authRouter);
 
 // Middleware to check requester
 export const requireRequester = async (req: Request, res: Response, next: NextFunction) => {

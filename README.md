@@ -77,8 +77,12 @@ npm install
 copy .env.example .env
 ```
 
-เปิดไฟล์ `.env` แล้วแก้บรรทัด `DATABASE_URL` ให้ตรงกับ username/password/port ของ PostgreSQL ที่ใช้จริง เช่น:
+เปิดไฟล์ `.env` แล้วตรวจสอบ/แก้ไขค่า `DATABASE_URL` และ `JWT_SECRET` ให้ตรงกับการใช้งาน เช่น:
+
+```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit?schema=public"
+JWT_SECRET="toktickit-secret-session-key-lab-03-2026"
+```
 
 รัน migration เพื่อสร้างตารางในฐานข้อมูล:
 
