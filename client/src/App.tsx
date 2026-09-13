@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
-import RequesterSelector, { type Requester } from './components/RequesterSelector';
+import Login, { type AuthUser } from './components/Login';
+import ChangePassword from './components/ChangePassword';
 import CreateTicket from './components/CreateTicket';
 import MyTickets from './components/MyTickets';
 import TicketDetail from './components/TicketDetail';
@@ -8,29 +9,63 @@ import TicketDetail from './components/TicketDetail';
 export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL';
 
 function App() {
-  const [requester, setRequester] = useState<Requester | null>(() => {
+  const loggedOutRef = useRef(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     try {
-      const saved = localStorage.getItem('toktickit_requester');
+      const saved = localStorage.getItem('toktickit_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
+
   const [currentView, setCurrentView] = useState<ViewType>('MY_TICKETS');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleSelectRequester = (selected: Requester) => {
-    setRequester(selected);
-    localStorage.setItem('toktickit_requester', JSON.stringify(selected));
+  // Check existing session
+  useEffect(() => {
+    let isCancelled = false;
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isCancelled && !loggedOutRef.current) {
+          if (data?.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem('toktickit_user', JSON.stringify(data.user));
+          } else {
+            setCurrentUser(null);
+            localStorage.removeItem('toktickit_user');
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const handleLoginSuccess = (user: AuthUser) => {
+    loggedOutRef.current = false;
+    setCurrentUser(user);
+    localStorage.setItem('toktickit_user', JSON.stringify(user));
     setCurrentView('MY_TICKETS');
   };
 
-  const handleChangeRequester = () => {
-    setRequester(null);
-    localStorage.removeItem('toktickit_requester');
-    setSelectedTicketId(null);
-    setCurrentView('MY_TICKETS');
+  const handleLogout = async () => {
+    loggedOutRef.current = true;
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setCurrentUser(null);
+      localStorage.removeItem('toktickit_user');
+      localStorage.removeItem('toktickit_requester');
+      setSelectedTicketId(null);
+      setCurrentView('MY_TICKETS');
+    }
   };
 
   const [healthLoading, setHealthLoading] = useState(false);
@@ -71,10 +106,12 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  if (!requester) {
+  // If not authenticated, render Login screen + System Diagnostics (Lab 01 Compatibility)
+  if (!currentUser) {
     return (
       <div className="d-flex flex-column min-vh-100 justify-content-between" style={{ backgroundColor: '#F5F7F6' }}>
-        <RequesterSelector onSelect={handleSelectRequester} />
+        <Login onLoginSuccess={handleLoginSuccess} />
+
         {/* System Diagnostics (Lab 01 Compatibility) */}
         <div className="container py-2 text-center">
           <button
@@ -103,6 +140,12 @@ function App() {
       </div>
     );
   }
+
+  const effectiveRequester = {
+    id: currentUser.id,
+    name: currentUser.name,
+    email: currentUser.email,
+  };
 
   return (
     <div className="d-flex flex-column min-vh-100" style={{ backgroundColor: '#F5F7F6' }}>
@@ -153,8 +196,14 @@ function App() {
             </ul>
 
             <div className="d-flex align-items-center flex-wrap gap-2 text-white pt-2 pt-md-0 border-top border-md-0 border-white-50">
-              <span className="small text-white-50">Requester:</span>
-              <strong className="small text-white me-2">{requester.name}</strong>
+              <strong className="small text-white me-1">{currentUser.name}</strong>
+              <span className="badge rounded-pill bg-light text-dark px-2 py-1 small fw-semibold me-2">
+                {currentUser.role === 'ADMINISTRATOR'
+                  ? 'Administrator'
+                  : currentUser.role === 'IT_STAFF'
+                  ? 'IT Staff'
+                  : 'Requester'}
+              </span>
               <button
                 type="button"
                 className="btn btn-sm text-white px-2 py-1"
@@ -163,21 +212,32 @@ function App() {
                   border: '1px solid rgba(255, 255, 255, 0.4)',
                   fontSize: '0.8rem',
                 }}
-                onClick={handleChangeRequester}
+                onClick={handleLogout}
               >
-                Change Requester
+                Logout
               </button>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Mandatory Password Change Overlay */}
+      {currentUser.mustChangePassword && (
+        <ChangePassword
+          onSuccess={() => {
+            const updated = { ...currentUser, mustChangePassword: false };
+            setCurrentUser(updated);
+            localStorage.setItem('toktickit_user', JSON.stringify(updated));
+          }}
+        />
+      )}
+
       {/* Main Content Area */}
       <main className="flex-grow-1 py-4 px-3 px-md-4">
         <div className="container-lg" style={{ maxWidth: '1140px' }}>
           {currentView === 'MY_TICKETS' && (
             <MyTickets
-              requester={requester}
+              requester={effectiveRequester}
               onViewTicket={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
               onCreateNew={() => navigateTo('CREATE_TICKET')}
             />
@@ -185,7 +245,7 @@ function App() {
 
           {currentView === 'CREATE_TICKET' && (
             <CreateTicket
-              requester={requester}
+              requester={effectiveRequester}
               onCancel={() => navigateTo('MY_TICKETS')}
               onCreated={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
             />
@@ -193,7 +253,7 @@ function App() {
 
           {currentView === 'TICKET_DETAIL' && selectedTicketId && (
             <TicketDetail
-              requester={requester}
+              requester={effectiveRequester}
               ticketId={selectedTicketId}
               onBack={() => navigateTo('MY_TICKETS')}
             />
