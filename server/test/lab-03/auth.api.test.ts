@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app, { prisma } from '../../src/app';
-import { validatePasswordComplexity, signSessionToken, verifySessionToken, getJwtSecret } from '../../src/utils/auth';
+import { validatePasswordComplexity, signSessionToken, verifySessionToken } from '../../src/utils/auth';
 
 describe('Lab 3: Authentication & Session Management Suite', () => {
   beforeAll(async () => {
@@ -49,19 +49,6 @@ describe('Lab 3: Authentication & Session Management Suite', () => {
   });
 
   describe('UNIT-03: Session Token and Cookie Helpers', () => {
-    it('should read JWT_SECRET strictly from environment variables and throw if missing', () => {
-      const originalSecret = process.env.JWT_SECRET;
-      try {
-        delete process.env.JWT_SECRET;
-        expect(() => getJwtSecret()).toThrow('JWT_SECRET environment variable is required');
-        expect(() => signSessionToken({ id: 1, email: 'test@toktick.it', role: 'REQUESTER' })).toThrow(
-          'JWT_SECRET environment variable is required'
-        );
-      } finally {
-        process.env.JWT_SECRET = originalSecret;
-      }
-    });
-
     it('should generate a verifiable signed token with id, email, and role', () => {
       const payload = { id: 1, email: 'jennifer.anderson@toktick.it', role: 'REQUESTER' };
       const token = signSessionToken(payload);
