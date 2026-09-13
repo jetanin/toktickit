@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Requester } from './RequesterSelector';
+import type { Requester } from '../types';
 
 interface AttachmentItem {
   id: number;
@@ -11,6 +11,18 @@ interface AttachmentItem {
   createdAt: string;
 }
 
+interface PublicCommentItem {
+  id: number;
+  ticketId: number;
+  content: string;
+  author: {
+    id: number;
+    name: string;
+    role: string;
+  };
+  createdAt: string;
+}
+
 interface TicketDetailData {
   id: number;
   ticketNumber: string;
@@ -19,6 +31,7 @@ interface TicketDetailData {
   requestedPriority: string;
   itPriority: string | null;
   currentStatus: string;
+  requesterResolutionPending?: boolean;
   createdAt: string;
   updatedAt: string;
   category: { id: number; name: string };
@@ -58,8 +71,20 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
+  // Public Comments state
+  const [comments, setComments] = useState<PublicCommentItem[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  // Resolution indication state
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchTicketDetail();
+    fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId]);
 
@@ -84,6 +109,91 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
       setError(err.message || 'Unable to load ticket details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
+        headers: {
+          'X-Requester-Id': String(requester.id),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setComments(data);
+        } else {
+          setComments([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newComment.trim();
+    if (!trimmed) {
+      setCommentError('Comment cannot be empty or whitespace only.');
+      return;
+    }
+    if (trimmed.length > 2000) {
+      setCommentError('Comment cannot exceed 2000 characters.');
+      return;
+    }
+
+    setCommentSubmitting(true);
+    setCommentError(null);
+
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requester-Id': String(requester.id),
+        },
+        body: JSON.stringify({ content: trimmed }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to post comment.');
+      }
+
+      setNewComment('');
+      await fetchComments();
+    } catch (err: any) {
+      setCommentError(err.message || 'Unable to post comment.');
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleConfirmResolved = async () => {
+    setResolving(true);
+    setResolveError(null);
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/resolve-indication`, {
+        method: 'PATCH',
+        headers: {
+          'X-Requester-Id': String(requester.id),
+        },
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to submit resolution indication.');
+      }
+
+      setShowResolveModal(false);
+      await fetchTicketDetail();
+      await fetchComments();
+    } catch (err: any) {
+      setResolveError(err.message || 'Unable to indicate resolution.');
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -291,21 +401,50 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
         <div className="col-12 col-lg-8">
           <div className="card shadow-sm border-0" style={{ backgroundColor: '#FFFFFF' }}>
             <div className="card-header bg-white border-bottom py-3 px-4">
-              <div className="d-flex justify-content-between align-items-start gap-2">
+              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
                 <div>
                   <span className="small text-muted fw-semibold d-block mb-1">{ticket.ticketNumber}</span>
                   <h1 className="h4 fw-bold mb-0 text-dark">{ticket.summary}</h1>
                 </div>
-                <span
-                  className="badge px-2 py-1 fw-medium"
-                  style={getStatusBadgeStyle(ticket.currentStatus)}
-                >
-                  {ticket.currentStatus}
-                </span>
+                <div className="d-flex align-items-center gap-2">
+                  {!ticket.requesterResolutionPending &&
+                    ticket.currentStatus !== 'Resolved' &&
+                    ticket.currentStatus !== 'Closed' &&
+                    ticket.currentStatus !== 'Cancelled' && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-success fw-semibold px-2 py-1"
+                        style={{ borderColor: '#006B3C', color: '#006B3C' }}
+                        onClick={() => setShowResolveModal(true)}
+                      >
+                        Problem Appears Resolved
+                      </button>
+                    )}
+                  <span
+                    className="badge px-2 py-1 fw-medium"
+                    style={getStatusBadgeStyle(ticket.currentStatus)}
+                  >
+                    {ticket.currentStatus}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="card-body p-4">
+              {/* Requester Resolution Pending Banner */}
+              {ticket.requesterResolutionPending && (
+                <div
+                  className="alert alert-warning border-0 d-flex align-items-center gap-2 mb-4 p-3 shadow-sm rounded"
+                  role="alert"
+                  style={{ backgroundColor: '#FFF4E5', color: '#B25E00', borderLeft: '4px solid #F59E0B' }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>ℹ</span>
+                  <div>
+                    <strong>Problem Indicated as Resolved:</strong> You have indicated that this issue appears resolved. IT Staff will verify and complete official resolution.
+                  </div>
+                </div>
+              )}
+
               {/* Description Section */}
               <div className="mb-4">
                 <label className="form-label small fw-semibold text-muted text-uppercase mb-2">
@@ -371,6 +510,111 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                   <span className="small text-dark">{new Date(ticket.createdAt).toLocaleString()}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Public Comments Stream */}
+          <div className="card shadow-sm border-0 mt-4" style={{ backgroundColor: '#FFFFFF' }}>
+            <div className="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+              <h2 className="h6 fw-bold mb-0" style={{ color: '#006B3C' }}>
+                Public Comments ({Array.isArray(comments) ? comments.length : 0})
+              </h2>
+              <span className="small text-muted">Visible to Requester and IT Staff</span>
+            </div>
+            <div className="card-body p-4">
+              {/* Comments List */}
+              <div className="d-flex flex-column gap-3 mb-4">
+                {!Array.isArray(comments) || comments.length === 0 ? (
+                  <p className="text-muted small text-center my-3">No public comments yet.</p>
+                ) : (
+                  comments.map((c) => {
+                    const isRequester = c.author.role === 'REQUESTER';
+                    const roleLabel = isRequester ? 'Requester' : c.author.role === 'IT_STAFF' ? 'IT Support' : 'Administrator';
+                    const initials = c.author.name
+                      ? c.author.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                      : '?';
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="p-3 rounded border"
+                        style={{
+                          backgroundColor: isRequester ? '#F8FAF9' : '#F0F7FF',
+                          borderColor: isRequester ? '#E2E8E5' : '#D0E3F7',
+                        }}
+                      >
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <span
+                              className="rounded-circle d-inline-flex justify-content-center align-items-center fw-bold small text-white"
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                backgroundColor: isRequester ? '#006B3C' : '#105696',
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              {initials}
+                            </span>
+                            <strong className="small text-dark">{c.author.name}</strong>
+                            <span
+                              className="badge rounded-pill"
+                              style={{
+                                backgroundColor: isRequester ? '#EAF6EF' : '#E8F1FA',
+                                color: isRequester ? '#006B3C' : '#105696',
+                                border: `1px solid ${isRequester ? '#BFE4D1' : '#BDD8F0'}`,
+                                fontSize: '0.7rem',
+                              }}
+                            >
+                              {roleLabel}
+                            </span>
+                          </div>
+                          <span className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                            {new Date(c.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="small mb-0 text-dark" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                          {c.content}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add Comment Form */}
+              <form onSubmit={handleCommentSubmit} className="pt-3 border-top">
+                <label htmlFor="commentInput" className="form-label small fw-semibold text-muted">
+                  Add Public Comment
+                </label>
+                <textarea
+                  id="commentInput"
+                  className={`form-control form-control-sm mb-2 ${commentError ? 'is-invalid' : ''}`}
+                  rows={3}
+                  placeholder="Write a public comment..."
+                  value={newComment}
+                  onChange={(e) => {
+                    setNewComment(e.target.value);
+                    if (commentError) setCommentError(null);
+                  }}
+                  maxLength={2000}
+                  disabled={commentSubmitting}
+                />
+                {commentError && <div className="invalid-feedback d-block mb-2">{commentError}</div>}
+                <div className="d-flex justify-content-between align-items-center">
+                  <span className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                    {newComment.length}/2000 characters
+                  </span>
+                  <button
+                    type="submit"
+                    className="btn btn-sm text-white fw-semibold px-3"
+                    style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                    disabled={!newComment.trim() || commentSubmitting}
+                  >
+                    {commentSubmitting ? 'Posting...' : 'Post Comment'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -582,6 +826,63 @@ const TicketDetail: React.FC<Props> = ({ requester, ticketId, onBack }) => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Problem Appears Resolved Confirmation Modal */}
+      {showResolveModal && (
+        <div
+          className="modal show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header border-bottom py-3">
+                <h3 className="modal-title h5 fw-bold" style={{ color: '#006B3C' }}>
+                  Problem Appears Resolved
+                </h3>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => setShowResolveModal(false)}
+                ></button>
+              </div>
+
+              <div className="modal-body p-4">
+                <p className="text-dark mb-2">
+                  Are you sure the reported issue is resolved?
+                </p>
+                <p className="text-muted small mb-0">
+                  This will notify IT Staff that you consider the problem resolved. IT Staff will verify and complete the official ticket closure.
+                </p>
+                {resolveError && <div className="alert alert-danger py-2 small mt-3 mb-0">{resolveError}</div>}
+              </div>
+
+              <div className="modal-footer border-top py-2 px-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowResolveModal(false)}
+                  disabled={resolving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm text-white fw-semibold px-3"
+                  style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                  onClick={handleConfirmResolved}
+                  disabled={resolving}
+                >
+                  {resolving ? 'Submitting...' : 'Yes, Problem Resolved'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

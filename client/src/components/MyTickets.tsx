@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Requester } from './RequesterSelector';
+import type { Requester } from '../types';
 
 export interface TicketListItem {
   id: number;
