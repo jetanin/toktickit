@@ -5,8 +5,9 @@ import ChangePassword from './components/ChangePassword';
 import CreateTicket from './components/CreateTicket';
 import MyTickets from './components/MyTickets';
 import TicketDetail from './components/TicketDetail';
+import StaffTicketQueue from './components/StaffTicketQueue';
 
-export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL';
+export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL' | 'STAFF_QUEUE';
 
 function App() {
   const loggedOutRef = useRef(false);
@@ -19,7 +20,18 @@ function App() {
     }
   });
 
-  const [currentView, setCurrentView] = useState<ViewType>('MY_TICKETS');
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    try {
+      const saved = localStorage.getItem('toktickit_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.role === 'IT_STAFF' || parsed.role === 'ADMINISTRATOR') {
+          return 'STAFF_QUEUE';
+        }
+      }
+    } catch {}
+    return 'MY_TICKETS';
+  });
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -50,7 +62,11 @@ function App() {
     loggedOutRef.current = false;
     setCurrentUser(user);
     localStorage.setItem('toktickit_user', JSON.stringify(user));
-    setCurrentView('MY_TICKETS');
+    if (user.role === 'IT_STAFF' || user.role === 'ADMINISTRATOR') {
+      setCurrentView('STAFF_QUEUE');
+    } else {
+      setCurrentView('MY_TICKETS');
+    }
   };
 
   const handleLogout = async () => {
@@ -141,6 +157,8 @@ function App() {
     );
   }
 
+  const isStaffOrAdmin = currentUser.role === 'IT_STAFF' || currentUser.role === 'ADMINISTRATOR';
+
   const effectiveRequester = {
     id: currentUser.id,
     name: currentUser.name,
@@ -155,7 +173,7 @@ function App() {
           <span
             className="navbar-brand fw-bold me-4"
             style={{ cursor: 'pointer', fontSize: '1.25rem' }}
-            onClick={() => navigateTo('MY_TICKETS')}
+            onClick={() => navigateTo(isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS')}
           >
             TokTickIT
           </span>
@@ -171,11 +189,24 @@ function App() {
 
           <div className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`}>
             <ul className="navbar-nav me-auto mb-2 mb-md-0">
+              {isStaffOrAdmin && (
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link btn btn-link text-decoration-none border-0 ${
+                      currentView === 'STAFF_QUEUE' ? 'active fw-bold text-white' : 'text-white-50'
+                    }`}
+                    onClick={() => navigateTo('STAFF_QUEUE')}
+                  >
+                    Ticket Queue
+                  </button>
+                </li>
+              )}
               <li className="nav-item">
                 <button
                   type="button"
                   className={`nav-link btn btn-link text-decoration-none border-0 ${
-                    currentView === 'MY_TICKETS' || currentView === 'TICKET_DETAIL' ? 'active fw-bold text-white' : 'text-white-50'
+                    currentView === 'MY_TICKETS' ? 'active fw-bold text-white' : 'text-white-50'
                   }`}
                   onClick={() => navigateTo('MY_TICKETS')}
                 >
@@ -235,6 +266,14 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-grow-1 py-4 px-3 px-md-4">
         <div className="container-lg" style={{ maxWidth: '1140px' }}>
+          {currentView === 'STAFF_QUEUE' && (
+            <StaffTicketQueue
+              currentUser={currentUser}
+              onViewTicket={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
+              onCreateNew={() => navigateTo('CREATE_TICKET')}
+            />
+          )}
+
           {currentView === 'MY_TICKETS' && (
             <MyTickets
               requester={effectiveRequester}
@@ -246,7 +285,7 @@ function App() {
           {currentView === 'CREATE_TICKET' && (
             <CreateTicket
               requester={effectiveRequester}
-              onCancel={() => navigateTo('MY_TICKETS')}
+              onCancel={() => navigateTo(isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS')}
               onCreated={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
             />
           )}
@@ -255,7 +294,7 @@ function App() {
             <TicketDetail
               requester={effectiveRequester}
               ticketId={selectedTicketId}
-              onBack={() => navigateTo('MY_TICKETS')}
+              onBack={() => navigateTo(isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS')}
             />
           )}
         </div>
