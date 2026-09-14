@@ -16,8 +16,10 @@ export const prisma = new PrismaClient({ adapter });
 
 import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth';
+import staffRouter from './routes/staff';
 import { authenticateSession, gatePasswordChange } from './middleware/auth';
 import { COOKIE_NAME } from './utils/auth';
+import { formatTicket, parseStatus, parsePriority } from './utils/format';
 
 const app = express();
 app.use(cors());
@@ -27,6 +29,7 @@ app.use(authenticateSession);
 app.use(gatePasswordChange);
 
 app.use('/api/auth', authRouter);
+app.use('/api/staff', staffRouter);
 
 // Middleware to check requester / session identity
 export const requireRequester = async (req: Request, res: Response, next: NextFunction) => {
@@ -153,33 +156,14 @@ app.get('/api/related-systems', async (req, res) => {
   }
 });
 
-// Format ticket for API response
-const formatTicket = (ticket: any) => {
-  const mapPriority = (p: string | null) => p ? p.charAt(0) + p.slice(1).toLowerCase() : null;
-  const mapStatus = (s: string) => {
-    if (s === 'NEW') return 'New';
-    if (s === 'OPEN') return 'Open';
-    if (s === 'IN_PROGRESS') return 'In Progress';
-    if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
-    if (s === 'RESOLVED') return 'Resolved';
-    if (s === 'CLOSED') return 'Closed';
-    if (s === 'REOPENED') return 'Reopened';
-    if (s === 'CANCELLED') return 'Cancelled';
-    return s;
-  };
-  
-  return {
-    ...ticket,
-    requestedPriority: mapPriority(ticket.requestedPriority),
-    itPriority: mapPriority(ticket.itPriority),
-    currentStatus: mapStatus(ticket.currentStatus),
-  };
-};
-
 // TICKETS
 app.post('/api/tickets', requireRequester, async (req, res) => {
   try {
     const user = req.user!;
+    if (user.role === 'ADMINISTRATOR') {
+      res.status(403).json({ error: 'Access forbidden: Insufficient permissions' });
+      return;
+    }
     const { categoryId, relatedSystemId, summary, description, requestedPriority } = req.body;
     
     if (
@@ -308,11 +292,13 @@ app.get('/api/tickets', requireRequester, async (req, res) => {
       ];
     }
     if (category) where.categoryId = parseInt(category as string, 10);
-    if (priority) where.requestedPriority = (priority as string).toUpperCase();
+    if (priority) {
+      const priorityMapped = parsePriority(priority as string);
+      if (priorityMapped) where.requestedPriority = priorityMapped;
+    }
     if (status) {
-      let statusMapped = (status as string).toUpperCase();
-      if (statusMapped === 'IN PROGRESS') statusMapped = 'IN_PROGRESS';
-      where.currentStatus = statusMapped;
+      const statusMapped = parseStatus(status as string);
+      if (statusMapped) where.currentStatus = statusMapped;
     }
     
     const totalItems = await prisma.ticket.count({ where });

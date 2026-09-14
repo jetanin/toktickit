@@ -102,4 +102,38 @@ describe('UI-03: Authenticated App Shell Header & Mandatory Password Change Gate
     expect(screen.getByRole('heading', { name: /change your password/i })).toBeInTheDocument();
     expect(screen.getByText(/action required/i)).toBeInTheDocument();
   });
+
+  it('renders role-specific navigation for ADMINISTRATOR without My Tickets or Create Ticket', async () => {
+    const mockAdmin = {
+      id: 99,
+      name: 'Admin User',
+      email: 'admin@toktick.it',
+      role: 'ADMINISTRATOR',
+      mustChangePassword: false,
+    };
+
+    localStorage.setItem('toktickit_user', JSON.stringify(mockAdmin));
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/auth/me')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ user: mockAdmin }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [], meta: { totalItems: 0 } }) });
+    });
+
+    render(<App />);
+
+    expect(screen.getByText('Admin User')).toBeInTheDocument();
+    expect(screen.getByText('Administrator')).toBeInTheDocument();
+
+    // Administrator sees Ticket Queue
+    expect(screen.getByRole('button', { name: /ticket queue/i })).toBeInTheDocument();
+
+    // Administrator does NOT see My Tickets or Create Ticket
+    expect(screen.queryByRole('button', { name: /my tickets/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /create ticket/i })).not.toBeInTheDocument();
+  });
 });
