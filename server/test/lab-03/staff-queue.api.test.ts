@@ -140,6 +140,22 @@ describe('Lab 3: IT Staff Ticket Queue Suite (GET /api/staff/tickets)', () => {
       expect(res.body).toHaveProperty('data');
       expect(res.body).toHaveProperty('meta');
     });
+
+    it('should reject ticket creation (POST /api/tickets) by ADMINISTRATOR with 403 Forbidden', async () => {
+      const res = await request(app)
+        .post('/api/tickets')
+        .set('Cookie', `toktickit_session=${tokenAdmin}`)
+        .send({
+          categoryId: testCat1Id,
+          relatedSystemId: testSysId,
+          summary: 'Admin attempted ticket creation',
+          description: 'Administrator role is not permitted to create tickets per spec 4.1',
+          requestedPriority: 'Low',
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/Access forbidden: Insufficient permissions/i);
+    });
   });
 
   describe('2. Global Visibility across Requesters & Response Structure', () => {

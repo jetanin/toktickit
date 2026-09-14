@@ -158,6 +158,8 @@ function App() {
   }
 
   const isStaffOrAdmin = currentUser.role === 'IT_STAFF' || currentUser.role === 'ADMINISTRATOR';
+  const canCreateTicket = currentUser.role === 'REQUESTER' || currentUser.role === 'IT_STAFF';
+  const hasMyTickets = currentUser.role !== 'ADMINISTRATOR';
 
   const effectiveRequester = {
     id: currentUser.id,
@@ -202,28 +204,32 @@ function App() {
                   </button>
                 </li>
               )}
-              <li className="nav-item">
-                <button
-                  type="button"
-                  className={`nav-link btn btn-link text-decoration-none border-0 ${
-                    currentView === 'MY_TICKETS' ? 'active fw-bold text-white' : 'text-white-50'
-                  }`}
-                  onClick={() => navigateTo('MY_TICKETS')}
-                >
-                  My Tickets
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  type="button"
-                  className={`nav-link btn btn-link text-decoration-none border-0 ${
-                    currentView === 'CREATE_TICKET' ? 'active fw-bold text-white' : 'text-white-50'
-                  }`}
-                  onClick={() => navigateTo('CREATE_TICKET')}
-                >
-                  Create Ticket
-                </button>
-              </li>
+              {hasMyTickets && (
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link btn btn-link text-decoration-none border-0 ${
+                      currentView === 'MY_TICKETS' ? 'active fw-bold text-white' : 'text-white-50'
+                    }`}
+                    onClick={() => navigateTo('MY_TICKETS')}
+                  >
+                    My Tickets
+                  </button>
+                </li>
+              )}
+              {canCreateTicket && (
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link btn btn-link text-decoration-none border-0 ${
+                      currentView === 'CREATE_TICKET' ? 'active fw-bold text-white' : 'text-white-50'
+                    }`}
+                    onClick={() => navigateTo('CREATE_TICKET')}
+                  >
+                    Create Ticket
+                  </button>
+                </li>
+              )}
             </ul>
 
             <div className="d-flex align-items-center flex-wrap gap-2 text-white pt-2 pt-md-0 border-top border-md-0 border-white-50">
@@ -270,7 +276,7 @@ function App() {
             <StaffTicketQueue
               currentUser={currentUser}
               onViewTicket={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
-              onCreateNew={() => navigateTo('CREATE_TICKET')}
+              onCreateNew={canCreateTicket ? () => navigateTo('CREATE_TICKET') : undefined}
             />
           )}
 

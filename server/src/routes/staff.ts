@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
 import { requireRole } from '../middleware/auth';
 import type { Role } from '../../generated/prisma/client';
-import { formatTicket } from '../utils/format';
+import { formatTicket, parseStatus, parsePriority } from '../utils/format';
 
 const router = Router();
 
@@ -69,13 +69,14 @@ router.get('/tickets', async (req: Request, res: Response): Promise<void> => {
 
     // Priority filter (matches itPriority per spec 6.1)
     if (priority && typeof priority === 'string') {
-      where.itPriority = priority.toUpperCase();
+      const priorityMapped = parsePriority(priority);
+      if (priorityMapped) where.itPriority = priorityMapped;
     }
 
     // Status filter
     if (status && typeof status === 'string') {
-      let statusMapped = status.toUpperCase().replace(/\s+/g, '_');
-      where.currentStatus = statusMapped;
+      const statusMapped = parseStatus(status);
+      if (statusMapped) where.currentStatus = statusMapped;
     }
 
     // Assignment filter: all, unassigned, me
