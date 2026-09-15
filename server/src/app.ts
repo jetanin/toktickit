@@ -156,6 +156,29 @@ app.get('/api/related-systems', async (req, res) => {
   }
 });
 
+// Format ticket for API response
+const formatTicket = (ticket: any) => {
+  const mapPriority = (p: string | null) => p ? p.charAt(0) + p.slice(1).toLowerCase() : null;
+  const mapStatus = (s: string) => {
+    if (s === 'NEW') return 'New';
+    if (s === 'OPEN') return 'Open';
+    if (s === 'IN_PROGRESS') return 'In Progress';
+    if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
+    if (s === 'RESOLVED') return 'Resolved';
+    if (s === 'CLOSED') return 'Closed';
+    if (s === 'REOPENED') return 'Reopened';
+    if (s === 'CANCELLED') return 'Cancelled';
+    return s;
+  };
+  
+  return {
+    ...ticket,
+    requestedPriority: mapPriority(ticket.requestedPriority),
+    itPriority: mapPriority(ticket.itPriority),
+    currentStatus: mapStatus(ticket.currentStatus),
+  };
+};
+
 // TICKETS
 app.post('/api/tickets', requireRequester, async (req, res) => {
   try {
@@ -715,6 +738,120 @@ app.post('/api/tickets/:id/comments', requireRequester, async (req, res) => {
     });
 
     res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// INTERNAL NOTES (Restricted strictly to IT_STAFF and ADMINISTRATOR per BR-04, BR-20, AC-04)
+const requireInternalNotesRole = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  if (req.user.role !== 'IT_STAFF' && req.user.role !== 'ADMINISTRATOR') {
+    res.status(403).json({ error: 'Access forbidden: Insufficient permissions' });
+    return;
+  }
+  next();
+};
+
+app.get('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req, res) => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const notes = await prisma.internalNote.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        ticketId: true,
+        content: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
+
+    res.status(200).json(notes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req, res) => {
+  try {
+    const user = req.user!;
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const { content } = req.body;
+    if (
+      !content ||
+      typeof content !== 'string' ||
+      content.trim().length === 0 ||
+      content.trim().length > 2000
+    ) {
+      res.status(400).json({
+        error: 'Internal note content must be between 1 and 2000 characters',
+      });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const note = await prisma.internalNote.create({
+      data: {
+        ticketId,
+        authorId: user.id,
+        content: content.trim(),
+      },
+      select: {
+        id: true,
+        ticketId: true,
+        content: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
+
+    res.status(201).json(note);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
