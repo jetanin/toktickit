@@ -17,6 +17,7 @@ export const prisma = new PrismaClient({ adapter });
 import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth';
 import staffRouter from './routes/staff';
+import adminRouter from './routes/admin';
 import { authenticateSession, gatePasswordChange } from './middleware/auth';
 import { COOKIE_NAME } from './utils/auth';
 import { formatTicket, parseStatus, parsePriority } from './utils/format';
@@ -30,6 +31,7 @@ app.use(gatePasswordChange);
 
 app.use('/api/auth', authRouter);
 app.use('/api/staff', staffRouter);
+app.use('/api/admin', adminRouter);
 
 // Middleware to check requester / session identity
 export const requireRequester = async (req: Request, res: Response, next: NextFunction) => {

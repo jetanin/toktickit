@@ -6,8 +6,9 @@ import CreateTicket from './components/CreateTicket';
 import MyTickets from './components/MyTickets';
 import TicketDetail from './components/TicketDetail';
 import StaffTicketQueue from './components/StaffTicketQueue';
+import UserManagement from './components/UserManagement';
 
-export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL' | 'STAFF_QUEUE';
+export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL' | 'STAFF_QUEUE' | 'USER_MANAGEMENT';
 
 function App() {
   const loggedOutRef = useRef(false);
@@ -158,6 +159,7 @@ function App() {
   }
 
   const isStaffOrAdmin = currentUser.role === 'IT_STAFF' || currentUser.role === 'ADMINISTRATOR';
+  const isAdmin = currentUser.role === 'ADMINISTRATOR';
   const canCreateTicket = currentUser.role === 'REQUESTER' || currentUser.role === 'IT_STAFF';
   const hasMyTickets = currentUser.role !== 'ADMINISTRATOR';
 
@@ -175,7 +177,7 @@ function App() {
           <span
             className="navbar-brand fw-bold me-4"
             style={{ cursor: 'pointer', fontSize: '1.25rem' }}
-            onClick={() => navigateTo(isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS')}
+            onClick={() => navigateTo(isAdmin ? 'USER_MANAGEMENT' : (isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS'))}
           >
             TokTickIT
           </span>
@@ -201,6 +203,19 @@ function App() {
                     onClick={() => navigateTo('STAFF_QUEUE')}
                   >
                     Ticket Queue
+                  </button>
+                </li>
+              )}
+              {isAdmin && (
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link btn btn-link text-decoration-none border-0 ${
+                      currentView === 'USER_MANAGEMENT' ? 'active fw-bold text-white' : 'text-white-50'
+                    }`}
+                    onClick={() => navigateTo('USER_MANAGEMENT')}
+                  >
+                    Users
                   </button>
                 </li>
               )}
@@ -272,6 +287,10 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-grow-1 py-4 px-3 px-md-4">
         <div className="container-lg" style={{ maxWidth: '1140px' }}>
+          {currentView === 'USER_MANAGEMENT' && (
+            <UserManagement currentUser={currentUser} />
+          )}
+
           {currentView === 'STAFF_QUEUE' && (
             <StaffTicketQueue
               currentUser={currentUser}
