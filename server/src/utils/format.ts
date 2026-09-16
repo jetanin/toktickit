@@ -34,3 +34,4 @@ export const formatTicket = (ticket: any) => {
     currentStatus: mapStatus(ticket.currentStatus),
   };
 };
+

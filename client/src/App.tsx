@@ -298,6 +298,7 @@ function App() {
 
           {currentView === 'TICKET_DETAIL' && selectedTicketId && (
             <TicketDetail
+              currentUser={currentUser}
               requester={effectiveRequester}
               ticketId={selectedTicketId}
               onBack={() => navigateTo(isStaffOrAdmin ? 'STAFF_QUEUE' : 'MY_TICKETS')}
