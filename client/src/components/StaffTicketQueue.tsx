@@ -48,6 +48,7 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isForbidden, setIsForbidden] = useState(false);
+  const [showTabletFilters, setShowTabletFilters] = useState(false);
 
   // Filters & Sorting state
   const [search, setSearch] = useState('');
@@ -289,6 +290,13 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
   const startRecord = meta.totalItems === 0 ? 0 : (meta.currentPage - 1) * meta.itemsPerPage + 1;
   const endRecord = Math.min(meta.totalItems, meta.currentPage * meta.itemsPerPage);
 
+  const activeFiltersCount = [
+    category,
+    priority,
+    status,
+    assigned !== 'all' ? assigned : '',
+  ].filter(Boolean).length;
+
   return (
     <div>
       {/* Title & Quick Action */}
@@ -314,8 +322,9 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
       {/* Filter and Search Card */}
       <div className="card shadow-sm border-0 mb-4" style={{ backgroundColor: '#FFFFFF' }}>
         <div className="card-body p-3">
-          <form onSubmit={handleSearchSubmit} className="row g-2">
-            <div className="col-12 col-md-5 col-lg-4">
+          <form onSubmit={handleSearchSubmit} className="row g-2 align-items-center">
+            {/* Search Input: Desktop col-lg-3, Tablet col-md-6, Mobile col-12 */}
+            <div className="col-12 col-md-6 col-lg-3">
               <input
                 type="text"
                 className="form-control"
@@ -325,78 +334,48 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
                 style={{ minHeight: '40px' }}
               />
             </div>
-            <div className="col-6 col-md-3 col-lg-2">
-              <select
-                className="form-select"
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  setPage(1);
-                }}
-                style={{ minHeight: '40px' }}
+
+            {/* Tablet-only Collapsed "Filters" Button (768px - 991px) */}
+            <div className="col-6 col-md-3 d-none d-md-block d-lg-none">
+              <button
+                type="button"
+                className={`btn w-100 fw-semibold d-flex align-items-center justify-content-center gap-2 ${
+                  showTabletFilters || activeFiltersCount > 0
+                    ? 'btn-success text-white'
+                    : 'btn-outline-secondary'
+                }`}
+                style={
+                  showTabletFilters || activeFiltersCount > 0
+                    ? { backgroundColor: '#006B3C', borderColor: '#006B3C', minHeight: '40px' }
+                    : { minHeight: '40px' }
+                }
+                onClick={() => setShowTabletFilters(!showTabletFilters)}
+                aria-expanded={showTabletFilters}
+                aria-label="Filters"
               >
-                <option value="">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
+                </svg>
+                <span>Filters</span>
+                {activeFiltersCount > 0 && (
+                  <span
+                    className="badge bg-white text-dark rounded-pill"
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
             </div>
-            <div className="col-6 col-md-2 col-lg-2">
-              <select
-                className="form-select"
-                value={priority}
-                onChange={(e) => {
-                  setPriority(e.target.value);
-                  setPage(1);
-                }}
-                style={{ minHeight: '40px' }}
-              >
-                <option value="">All IT Priorities</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-            <div className="col-6 col-md-2 col-lg-2">
-              <select
-                className="form-select"
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setPage(1);
-                }}
-                style={{ minHeight: '40px' }}
-              >
-                <option value="">All Statuses</option>
-                <option value="New">New</option>
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Waiting for Requester">Waiting for Requester</option>
-                <option value="Resolved">Resolved</option>
-                <option value="Closed">Closed</option>
-                <option value="Reopened">Reopened</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div className="col-6 col-md-2 col-lg-2">
-              <select
-                className="form-select"
-                value={assigned}
-                onChange={(e) => {
-                  setAssigned(e.target.value);
-                  setPage(1);
-                }}
-                style={{ minHeight: '40px' }}
-              >
-                <option value="all">All Assignments</option>
-                <option value="me">Assigned to Me</option>
-                <option value="unassigned">Unassigned</option>
-              </select>
-            </div>
-            <div className="col-12 col-md-3 col-lg-2 d-grid">
+
+            {/* Search Submit Button: Desktop col-lg-1, Tablet col-md-3, Mobile col-12 */}
+            <div className="col-12 col-md-3 col-lg-1 d-grid">
               <button
                 type="submit"
                 className="btn text-white fw-semibold"
@@ -404,6 +383,93 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
               >
                 Search
               </button>
+            </div>
+
+            {/* Filter Dropdowns Container:
+                - On Desktop (>=992px): displayed in-line across the form row (`col-lg-3` inside `col-lg-8`)
+                - On Tablet (768px-991px): collapsed into a popover/drawer panel below the main row if showTabletFilters is true, hidden if false
+                - On Mobile (<768px): displayed directly in-line (`col-6` each)
+            */}
+            <div
+              className={`col-12 col-lg-8 ${
+                showTabletFilters
+                  ? 'd-block mt-3 p-3 bg-light border rounded shadow-sm'
+                  : 'd-block d-md-none d-lg-block'
+              }`}
+            >
+              <div className="row g-2">
+                <div className="col-6 col-md-3 col-lg-3">
+                  <select
+                    className="form-select"
+                    value={category}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minHeight: '40px' }}
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-6 col-md-3 col-lg-3">
+                  <select
+                    className="form-select"
+                    value={priority}
+                    onChange={(e) => {
+                      setPriority(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minHeight: '40px' }}
+                  >
+                    <option value="">All IT Priorities</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+                <div className="col-6 col-md-3 col-lg-3">
+                  <select
+                    className="form-select"
+                    value={status}
+                    onChange={(e) => {
+                      setStatus(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minHeight: '40px' }}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="New">New</option>
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Waiting for Requester">Waiting for Requester</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Reopened">Reopened</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div className="col-6 col-md-3 col-lg-3">
+                  <select
+                    className="form-select"
+                    value={assigned}
+                    onChange={(e) => {
+                      setAssigned(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ minHeight: '40px' }}
+                  >
+                    <option value="all">All Assignments</option>
+                    <option value="me">Assigned to Me</option>
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </form>
 
@@ -512,53 +578,69 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
           {/* Desktop Table View (>= 768px / >= 992px per spec) */}
           <div className="d-none d-md-block card shadow-sm border-0 mb-3" style={{ backgroundColor: '#FFFFFF' }}>
             <div className="table-responsive">
-              <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+              <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.8rem', width: '100%' }}>
                 <thead style={{ backgroundColor: '#F5F7F6', borderBottom: '1px solid #E2E8E5' }}>
-                  <tr className="text-muted text-uppercase text-nowrap" style={{ fontSize: '0.75rem' }}>
-                    <th className="ps-3 py-2">Ticket No.</th>
-                    <th className="py-2">Created Date</th>
-                    <th className="py-2">Summary</th>
-                    <th className="py-2">Category</th>
-                    <th className="py-2">Req. Priority</th>
+                  <tr className="text-muted text-uppercase text-nowrap" style={{ fontSize: '0.72rem' }}>
+                    <th className="ps-2 py-2">Ticket No.</th>
+                    <th className="py-2 d-none d-lg-table-cell">Created Date</th>
+                    <th className="py-2" style={{ maxWidth: '140px' }}>Summary</th>
+                    <th className="py-2 d-none d-lg-table-cell">Category</th>
+                    <th className="py-2 d-none d-lg-table-cell">Req. Priority</th>
                     <th className="py-2">IT Priority</th>
                     <th className="py-2">Status</th>
                     <th className="py-2">Owner</th>
-                    <th className="py-2">Last Updated</th>
-                    <th className="pe-3 py-2 text-end">Action</th>
+                    <th className="py-2 d-none d-lg-table-cell">Last Updated</th>
+                    <th className="pe-2 py-2 text-end" style={{ width: '65px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tickets.map((t) => (
                     <tr key={t.id}>
-                      <td className="ps-3 py-2 fw-semibold text-nowrap">
+                      <td className="ps-2 py-2 fw-semibold text-nowrap">
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none fw-semibold font-monospace"
-                          style={{ color: '#006B3C' }}
+                          style={{ color: '#006B3C', fontSize: '0.8rem' }}
                           onClick={() => onViewTicket(t.id)}
                         >
                           {t.ticketNumber}
                         </button>
+                        <span
+                          className="d-none d-md-block d-lg-none small text-muted font-monospace"
+                          style={{ fontSize: '0.72rem' }}
+                        >
+                          {new Date(t.createdAt).toLocaleDateString()}
+                        </span>
                       </td>
-                      <td className="py-2 text-muted text-nowrap">
+                      <td className="py-2 text-muted text-nowrap d-none d-lg-table-cell">
                         {new Date(t.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-2">
+                      <td className="py-2" style={{ maxWidth: '140px' }}>
                         <strong
                           className="d-block text-truncate"
-                          style={{ maxWidth: '200px' }}
+                          style={{ maxWidth: '140px' }}
                           title={t.summary}
                         >
                           {t.summary}
                         </strong>
-                        <span className="small text-muted d-block">{t.requester?.name}</span>
+                        <div className="small text-muted d-flex align-items-center gap-1 flex-wrap" style={{ maxWidth: '140px' }}>
+                          <span className="text-truncate" style={{ maxWidth: '80px' }} title={t.requester?.name}>
+                            {t.requester?.name}
+                          </span>
+                          <span
+                            className="d-none d-md-inline-block d-lg-none badge rounded-pill bg-light text-dark border ms-1"
+                            style={{ fontSize: '0.68rem' }}
+                          >
+                            {t.category?.name}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-2 text-nowrap">
+                      <td className="py-2 text-nowrap d-none d-lg-table-cell">
                         <span className="badge rounded-pill bg-light text-dark border">
                           {t.category?.name}
                         </span>
                       </td>
-                      <td className="py-2 text-nowrap">{getPriorityBadge(t.requestedPriority)}</td>
+                      <td className="py-2 text-nowrap d-none d-lg-table-cell">{getPriorityBadge(t.requestedPriority)}</td>
                       <td className="py-2 text-nowrap">{getPriorityBadge(t.itPriority)}</td>
                       <td className="py-2 text-nowrap">{getStatusBadge(t.currentStatus)}</td>
                       <td className="py-2 text-nowrap">
@@ -568,14 +650,14 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
                           <span className="text-muted fst-italic">Unassigned</span>
                         )}
                       </td>
-                      <td className="py-2 text-muted text-nowrap">
+                      <td className="py-2 text-muted text-nowrap d-none d-lg-table-cell">
                         {new Date(t.updatedAt).toLocaleDateString()}
                       </td>
-                      <td className="pe-3 py-2 text-end text-nowrap">
+                      <td className="pe-2 py-2 text-end text-nowrap" style={{ width: '65px' }}>
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-success px-2 py-1 fw-medium"
-                          style={{ color: '#0B7A46', borderColor: '#0B7A46', fontSize: '0.8rem' }}
+                          style={{ color: '#0B7A46', borderColor: '#0B7A46', fontSize: '0.78rem' }}
                           onClick={() => onViewTicket(t.id)}
                         >
                           View
