@@ -157,11 +157,28 @@ TokTickIT preserves and extends the **Zen Green** enterprise design language est
   2. `Created Date` (Sortable, formatted timestamp)
   3. `Summary` (Bold title, truncated with tooltip)
   4. `Category` (Sortable, name chip)
-  5. `Req. Priority` (Priority badge)
-  6. `IT Priority` (Priority badge)
-  7. `Status` (Sortable, status badge)
-  8. `Owner` (Sortable, staff name or muted `"Unassigned"`)
-  9. `Actions` ("View" button)
+  5. `Created Date` (Formatted timestamp)
+  6. `Summary` (Bold title, truncated with tooltip, requester name below)
+  7. `Category` (Name badge)
+  8. `Req. Priority` (Priority badge)
+  9. `IT Priority` (Priority badge)
+  10. `Status` (Sortable, status badge)
+  11. `Owner` (Sortable, staff name or muted `"Unassigned"`)
+  12. `Actions` ("View" button)
+  13. `Status` (Status badge)
+  14. `Owner` (Staff name or muted `"Unassigned"`)
+  15. `Last Updated` (Formatted timestamp)
+  16. `Action` ("View" button)
+- **Tablet Table Layout (768px – 991px)**:
+  - **Collapsed Filter Toolbar**: Main row displays Search input, Search button, and a responsive `"Filters"` toggle button with active filters count badge (`d-none d-md-block d-lg-none`). Clicking toggles a collapsible panel containing Category, IT Priority, Status, and Assignment dropdowns.
+  - **6-Column Responsive Table**: Reduces visible columns from 10 to 6 to guarantee zero horizontal scroll:
+    1. `Ticket No.` (Monospace ticket number link + secondary line created date underneath: `d-none d-md-block d-lg-none`)
+    2. `Summary` (Bold summary + secondary line requester name and category badge: `d-none d-md-inline-block d-lg-none`)
+    3. `IT Priority` (Priority badge)
+    4. `Status` (Status badge)
+    5. `Owner` (Staff name or muted `"Unassigned"`)
+    6. `Action` ("View" button)
+  - Columns hidden on tablet via `d-none d-lg-table-cell`: `Created Date`, `Category`, `Req. Priority`, and `Last Updated`.
 - **Mobile Card View (<768px)**:
   - Card header: Ticket Number + Status Badge.
   - Card body: Summary in bold, Category chip, IT Priority indicator.
@@ -212,12 +229,19 @@ TokTickIT preserves and extends the **Zen Green** enterprise design language est
   - `+ Create User` Primary Green button.
   - Search input: _"Search users..."_ (matches Name or Email).
   - `Filters` button: Role filter (`All Roles`, `Requester`, `IT Staff`, `Administrator`).
-- **User Table Columns**:
-  1. `Name` (Sortable, full name)
-  2. `Email` (Email address)
-  3. `Role` (Sortable, role badge)
-  4. `Status` (Sortable, Active green badge / Inactive red badge)
-  5. `Actions` ("Edit", "Reset Password")
+- **User Table & Responsive Layout**:
+  - **Desktop (≥ 992px) & Tablet (768px – 991px)**: Fixed-width responsive table (`d-none d-md-block table-responsive`) with proportional column widths:
+    1. `Name` (22%, `text-truncate` with tooltip `title` attribute)
+    2. `Email` (26%, `text-truncate` with monospace font and tooltip `title` attribute)
+    3. `Role` (15%, role badge)
+    4. `Status` (12%, Active green badge / Inactive red badge)
+    5. `Actions` (25%, min-width 175px, side-by-side "Edit" and "Reset Password" buttons, ensuring zero clipping and no horizontal scroll in 720px tablet containers)
+  - **Mobile (< 768px)**: Zen Green stacked card layout (`d-md-none`):
+    - Replaces table with dedicated individual user cards (`data-testid="user-cards-mobile"`).
+    - Top row displays Name (bold, truncated) and Email (monospace, truncated) paired with Status and Role badges.
+    - Displays `Password Change Pending` warning badge when applicable.
+    - Bottom row features full-width touch action buttons: `Edit` and `Reset Password` with touch target height $\ge 44\text{px}$ (`minHeight: 44px`), accessible with a single tap and zero horizontal page scroll.
+  - **Pagination**: 10 users per page across all viewports with accessible Previous/Next and numbered page controls.
 - **Create User Modal / Side Drawer**:
   - `Full Name *` input.
   - `Email Address *` input.
@@ -229,8 +253,8 @@ TokTickIT preserves and extends the **Zen Green** enterprise design language est
   - Editable Name and Email fields.
   - Role dropdown selector.
   - `Active` toggle switch.
-  - Safety Guards: Deactivate switch disabled if editing own account or if user is the last active Administrator.
-  - `Save User` Primary Button | `Deactivate User` Red outline button | `Cancel` Button.
+  - Safety Guards: Deactivate switch disabled if editing own account (BR-24) or if user is the last active Administrator (BR-25). Role modification locked if sole active Administrator.
+  - `Save User` Primary Button | `Cancel` Button.
 - **Reset Password Modal**:
   - New Initial Password input.
   - Warning: _"The user will be required to change this password on their next login."_

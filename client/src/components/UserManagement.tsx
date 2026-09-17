@@ -24,6 +24,13 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
 
+  // Pagination state (10 items per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // System-wide active admins count (from X-Active-Admins-Count header or computed)
+  const [systemActiveAdminsCount, setSystemActiveAdminsCount] = useState<number>(2);
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
@@ -35,6 +42,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   const [createRole, setCreateRole] = useState<'REQUESTER' | 'IT_STAFF' | 'ADMINISTRATOR'>('REQUESTER');
   const [createActive, setCreateActive] = useState(true);
   const [createPassword, setCreatePassword] = useState('');
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -48,6 +56,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
 
   // Reset Password Form state
   const [resetPassword, setResetPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
@@ -74,8 +83,18 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
         throw new Error(`Failed to load users (Status: ${res.status})`);
       }
 
+      // Check for system-wide active admins count header
+      const headerCount = res.headers?.get?.('X-Active-Admins-Count');
       const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+      const userList = Array.isArray(data) ? data : [];
+      setUsers(userList);
+
+      if (headerCount !== null && headerCount !== undefined && !isNaN(parseInt(headerCount, 10))) {
+        setSystemActiveAdminsCount(parseInt(headerCount, 10));
+      } else {
+        const count = userList.filter((u: AdminUser) => u.role === 'ADMINISTRATOR' && u.isActive).length;
+        setSystemActiveAdminsCount(count);
+      }
     } catch (err: any) {
       setError(err.message || 'Unable to load users.');
     } finally {
@@ -83,13 +102,27 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
+  const totalItems = users.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const paginatedUsers = users.slice(startIndex, endIndex);
+
   useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchUsers();
   };
 
@@ -115,6 +148,9 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 409) {
+          throw new Error(data.error || 'This email address is already in use');
+        }
         throw new Error(data.error || 'Failed to create user.');
       }
 
@@ -124,6 +160,8 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
       setCreateRole('REQUESTER');
       setCreateActive(true);
       setCreatePassword('');
+      setShowCreatePassword(false);
+      setCurrentPage(1);
       await fetchUsers();
     } catch (err: any) {
       setCreateError(err.message || 'Failed to create user.');
@@ -165,6 +203,9 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 409) {
+          throw new Error(data.error || 'This email address is already in use');
+        }
         throw new Error(data.error || 'Failed to update user.');
       }
 
@@ -181,6 +222,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   const openResetModal = (user: AdminUser) => {
     setResettingUser(user);
     setResetPassword('');
+    setShowResetPassword(false);
     setResetError(null);
     setResetSuccess(null);
   };
@@ -210,6 +252,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
 
       setResetSuccess(`New initial password successfully set for ${resettingUser.name}.`);
       setResetPassword('');
+      setShowResetPassword(false);
       setTimeout(() => {
         setResettingUser(null);
         setResetSuccess(null);
@@ -222,10 +265,40 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  // Safety Guard evaluations for the user currently being edited
-  const isSelf = editingUser && currentUser && editingUser.id === currentUser.id;
-  const activeAdminsCount = users.filter((u) => u.role === 'ADMINISTRATOR' && u.isActive).length;
-  const isSoleActiveAdmin = editingUser && editingUser.role === 'ADMINISTRATOR' && editingUser.isActive && activeAdminsCount <= 1;
+  // Effective current user resolution (from props or localStorage)
+  const storedUser = (() => {
+    try {
+      const raw = localStorage.getItem('toktickit_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const effectiveCurrentUser = currentUser || storedUser;
+  const currentAdminId = effectiveCurrentUser?.id != null ? Number(effectiveCurrentUser.id) : null;
+  const currentAdminEmail = effectiveCurrentUser?.email?.trim().toLowerCase() || null;
+
+  // Self check: strictly matches logged-in administrator by ID or email
+  const isSelf = Boolean(
+    editingUser && (
+      (currentAdminId !== null && Number(editingUser.id) === currentAdminId) ||
+      (currentAdminEmail !== null && editingUser.email?.trim().toLowerCase() === currentAdminEmail)
+    )
+  );
+
+  // System-wide active administrator count (use systemActiveAdminsCount if search/filter applied or unfiltered length)
+  const isFiltered = Boolean(searchTerm.trim() || roleFilter !== 'ALL');
+  const effectiveActiveAdminsCount = (!isFiltered && users.length > 0)
+    ? users.filter((u) => u.role === 'ADMINISTRATOR' && u.isActive).length
+    : systemActiveAdminsCount;
+
+  // Sole active admin protection: ONLY fires if target is an active Administrator AND is the last active one across the system
+  const isSoleActiveAdmin = Boolean(
+    editingUser &&
+    editingUser.role === 'ADMINISTRATOR' &&
+    editingUser.isActive &&
+    effectiveActiveAdminsCount <= 1
+  );
 
   // Zen Green Theme Token Badges
   const getRoleBadge = (role: string) => {
@@ -333,6 +406,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
                     className="btn btn-outline-secondary"
                     onClick={() => {
                       setSearchTerm('');
+                      setCurrentPage(1);
                       // Refetch without search
                       setTimeout(() => {
                         const params = new URLSearchParams();
@@ -392,58 +466,184 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
               <p className="mb-0">No users found.</p>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead style={{ backgroundColor: '#F5F7F6', borderBottom: '2px solid #D0DDD6' }}>
-                  <tr>
-                    <th className="py-3 px-3 text-secondary small fw-semibold">Name</th>
-                    <th className="py-3 px-3 text-secondary small fw-semibold">Email</th>
-                    <th className="py-3 px-3 text-secondary small fw-semibold">Role</th>
-                    <th className="py-3 px-3 text-secondary small fw-semibold">Status</th>
-                    <th className="py-3 px-3 text-secondary small fw-semibold text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid #EAEAEA' }}>
-                      <td className="py-3 px-3">
-                        <strong className="text-dark small d-block">{u.name}</strong>
-                        {u.mustChangePassword && (
+            <>
+              {/* Desktop & Tablet Table View (>= 768px) */}
+              <div className="d-none d-md-block table-responsive">
+                <table className="table table-hover align-middle mb-0" style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <thead style={{ backgroundColor: '#F5F7F6', borderBottom: '2px solid #D0DDD6' }}>
+                    <tr>
+                      <th className="py-3 px-3 text-secondary small fw-semibold" style={{ width: '22%' }}>Name</th>
+                      <th className="py-3 px-3 text-secondary small fw-semibold" style={{ width: '26%' }}>Email</th>
+                      <th className="py-3 px-3 text-secondary small fw-semibold" style={{ width: '15%' }}>Role</th>
+                      <th className="py-3 px-3 text-secondary small fw-semibold" style={{ width: '12%' }}>Status</th>
+                      <th className="py-3 px-3 text-secondary small fw-semibold text-end" style={{ width: '25%', minWidth: '175px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedUsers.map((u) => (
+                      <tr key={u.id} style={{ borderBottom: '1px solid #EAEAEA' }}>
+                        <td className="py-3 px-3">
+                          <strong className="text-dark small d-block text-truncate" title={u.name}>{u.name}</strong>
+                          {u.mustChangePassword && (
+                            <span
+                              className="badge bg-warning text-dark fw-normal"
+                              style={{ fontSize: '0.68rem' }}
+                            >
+                              Password Change Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 small text-muted font-monospace text-truncate" title={u.email}>{u.email}</td>
+                        <td className="py-3 px-3 text-nowrap">{getRoleBadge(u.role)}</td>
+                        <td className="py-3 px-3 text-nowrap">{getStatusBadge(u.isActive)}</td>
+                        <td className="py-3 px-3 text-end text-nowrap">
+                          <div className="btn-group btn-group-sm">
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary px-2 py-1"
+                              onClick={() => openEditModal(u)}
+                              aria-label={`Edit ${u.name}`}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary px-2 py-1"
+                              onClick={() => openResetModal(u)}
+                              aria-label={`Reset password for ${u.name}`}
+                            >
+                              Reset Password
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View (< 768px) */}
+              <div className="d-md-none d-flex flex-column gap-3 p-3" data-testid="user-cards-mobile">
+                {paginatedUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    className="card border shadow-sm"
+                    style={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }}
+                    data-testid="user-card-item"
+                  >
+                    <div className="card-body p-3">
+                      {/* Top Row: Name + Badges */}
+                      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <strong className="text-dark d-block text-truncate" style={{ fontSize: '0.95rem' }} title={u.name}>
+                            {u.name}
+                          </strong>
+                          <span
+                            className="small text-muted font-monospace text-truncate d-block mt-1"
+                            style={{ fontSize: '0.8rem' }}
+                            title={u.email}
+                          >
+                            {u.email}
+                          </span>
+                        </div>
+                        <div className="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                          {getStatusBadge(u.isActive)}
+                          {getRoleBadge(u.role)}
+                        </div>
+                      </div>
+
+                      {u.mustChangePassword && (
+                        <div className="mb-2">
                           <span
                             className="badge bg-warning text-dark fw-normal"
-                            style={{ fontSize: '0.68rem' }}
+                            style={{ fontSize: '0.7rem' }}
                           >
                             Password Change Pending
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 small text-muted font-monospace">{u.email}</td>
-                      <td className="py-3 px-3">{getRoleBadge(u.role)}</td>
-                      <td className="py-3 px-3">{getStatusBadge(u.isActive)}</td>
-                      <td className="py-3 px-3 text-end">
-                        <div className="btn-group btn-group-sm">
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary px-2 py-1"
-                            onClick={() => openEditModal(u)}
-                            aria-label={`Edit ${u.name}`}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary px-2 py-1"
-                            onClick={() => openResetModal(u)}
-                            aria-label={`Reset password for ${u.name}`}
-                          >
-                            Reset Password
-                          </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+
+                      {/* Action Buttons: Full touch targets (>= 44px) */}
+                      <div className="pt-2 mt-2 border-top d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm flex-fill d-flex align-items-center justify-content-center fw-medium"
+                          style={{ minHeight: '44px' }}
+                          onClick={() => openEditModal(u)}
+                          aria-label={`Edit ${u.name}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm flex-fill d-flex align-items-center justify-content-center fw-medium"
+                          style={{ minHeight: '44px' }}
+                          onClick={() => openResetModal(u)}
+                          aria-label={`Reset password for ${u.name}`}
+                        >
+                          Reset Password
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Pagination Controls (10 items per page) */}
+          {!loading && users.length > 0 && (
+            <div className="card-footer bg-white border-top py-3 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span className="small text-muted">
+                Showing {startIndex + 1} to {endIndex} of {totalItems} users{totalPages > 1 ? ` (Page ${currentPage} of ${totalPages})` : ''}
+              </span>
+              {totalPages > 1 && (
+                <div className="btn-group" role="navigation" aria-label="Pagination">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    style={{ minHeight: '36px', minWidth: '44px' }}
+                    aria-label="Previous page"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && (
+                          <button type="button" className="btn btn-sm btn-outline-secondary" disabled>
+                            ...
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${
+                            p === currentPage ? 'btn-success text-white' : 'btn-outline-secondary'
+                          }`}
+                          style={p === currentPage ? { backgroundColor: '#006B3C', borderColor: '#006B3C' } : {}}
+                          onClick={() => setCurrentPage(p)}
+                          aria-current={p === currentPage ? 'page' : undefined}
+                          aria-label={`Page ${p}`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    style={{ minHeight: '36px', minWidth: '44px' }}
+                    aria-label="Next page"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -546,15 +746,38 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
                     <label htmlFor="createUserPassword" className="form-label small fw-semibold text-dark">
                       Initial Password <span className="text-danger">*</span>
                     </label>
-                    <input
-                      id="createUserPassword"
-                      type="password"
-                      className="form-control form-control-sm"
-                      value={createPassword}
-                      onChange={(e) => setCreatePassword(e.target.value)}
-                      placeholder="Minimum 8 chars, mixed case, number, symbol"
-                      required
-                    />
+                    <div className="input-group input-group-sm">
+                      <input
+                        id="createUserPassword"
+                        type={showCreatePassword ? 'text' : 'password'}
+                        className="form-control form-control-sm"
+                        value={createPassword}
+                        onChange={(e) => setCreatePassword(e.target.value)}
+                        placeholder="Minimum 8 chars, mixed case, number, symbol"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary d-flex align-items-center"
+                        onClick={() => setShowCreatePassword(!showCreatePassword)}
+                        aria-label={showCreatePassword ? 'Hide password' : 'Show password'}
+                        tabIndex={-1}
+                      >
+                        {showCreatePassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                            <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                            <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                          </svg>
+                        )}
+                        <span className="ms-1 small">{showCreatePassword ? 'Hide' : 'Show'}</span>
+                      </button>
+                    </div>
                     <div className="form-text small text-muted" style={{ fontSize: '0.75rem' }}>
                       User will be required to change this password on their first login (BR-02).
                     </div>
@@ -766,15 +989,38 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
                     <label htmlFor="resetUserPassword" className="form-label small fw-semibold text-dark">
                       New Initial Password <span className="text-danger">*</span>
                     </label>
-                    <input
-                      id="resetUserPassword"
-                      type="password"
-                      className="form-control form-control-sm"
-                      value={resetPassword}
-                      onChange={(e) => setResetPassword(e.target.value)}
-                      placeholder="Enter new temporary password..."
-                      required
-                    />
+                    <div className="input-group input-group-sm">
+                      <input
+                        id="resetUserPassword"
+                        type={showResetPassword ? 'text' : 'password'}
+                        className="form-control form-control-sm"
+                        value={resetPassword}
+                        onChange={(e) => setResetPassword(e.target.value)}
+                        placeholder="Enter new temporary password..."
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary d-flex align-items-center"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        aria-label={showResetPassword ? 'Hide password' : 'Show password'}
+                        tabIndex={-1}
+                      >
+                        {showResetPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                            <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                            <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                          </svg>
+                        )}
+                        <span className="ms-1 small">{showResetPassword ? 'Hide' : 'Show'}</span>
+                      </button>
+                    </div>
                     <div className="form-text small text-muted mt-2" style={{ fontSize: '0.75rem' }}>
                       <strong>Warning:</strong> The user will be required to change this password on their next login (BR-26).
                     </div>

@@ -34,7 +34,7 @@ router.get('/users', async (req: Request, res: Response): Promise<void> => {
 
     const users = await prisma.user.findMany({
       where,
-      orderBy: { id: 'asc' },
+      orderBy: { id: 'desc' },
       select: {
         id: true,
         name: true,
@@ -46,6 +46,15 @@ router.get('/users', async (req: Request, res: Response): Promise<void> => {
         updatedAt: true,
       },
     });
+
+    const activeAdminsCount = await prisma.user.count({
+      where: {
+        role: 'ADMINISTRATOR',
+        isActive: true,
+      },
+    });
+    res.setHeader('X-Active-Admins-Count', activeAdminsCount.toString());
+    res.setHeader('Access-Control-Expose-Headers', 'X-Active-Admins-Count');
 
     res.status(200).json(users);
   } catch (err) {
@@ -98,7 +107,7 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
       where: { email: normalizedEmail },
     });
     if (existing) {
-      res.status(409).json({ error: 'Email address is already registered' });
+      res.status(409).json({ error: 'This email address is already in use (already registered)' });
       return;
     }
 
@@ -239,7 +248,7 @@ router.patch('/users/:id', async (req: Request, res: Response): Promise<void> =>
           },
         });
         if (dup) {
-          res.status(409).json({ error: 'Email address is already registered' });
+          res.status(409).json({ error: 'This email address is already in use (already registered)' });
           return;
         }
       }

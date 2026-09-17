@@ -170,6 +170,16 @@ describe('API-27 to API-33 / Lab 3: Administrator User Management & Safety Guard
       expect(res.text).not.toContain('passwordHash');
     });
 
+    it('includes X-Active-Admins-Count header representing system-wide active administrator count', async () => {
+      const res = await request(app)
+        .get('/api/admin/users')
+        .set('Authorization', `Bearer ${tokenAdmin1}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['x-active-admins-count']).toBeDefined();
+      expect(parseInt(res.headers['x-active-admins-count'], 10)).toBeGreaterThanOrEqual(2);
+    });
+
     it('supports keyword search filtering by name or email', async () => {
       const res = await request(app)
         .get(`/api/admin/users?search=${encodeURIComponent(staff1.name)}`)
@@ -378,6 +388,29 @@ describe('API-27 to API-33 / Lab 3: Administrator User Management & Safety Guard
           data: { isActive: true },
         });
       }
+    });
+
+    it('allows deactivating another Administrator when multiple active Administrators exist (BR-25)', async () => {
+      // admin1 deactivates admin2 while other admins remain active
+      const res = await request(app)
+        .patch(`/api/admin/users/${admin2.id}`)
+        .set('Authorization', `Bearer ${tokenAdmin1}`)
+        .send({
+          isActive: false,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.isActive).toBe(false);
+
+      // Verify in DB
+      const dbAdmin2 = await prisma.user.findUnique({ where: { id: admin2.id } });
+      expect(dbAdmin2!.isActive).toBe(false);
+
+      // Restore admin2 to active for subsequent tests
+      await prisma.user.update({
+        where: { id: admin2.id },
+        data: { isActive: true },
+      });
     });
   });
 
