@@ -28,6 +28,12 @@ function mockFetchSuccess() {
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ))
     }
+    if (url.includes('/api/dev-requesters')) {
+      return Promise.resolve(new Response(
+        JSON.stringify([]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ))
+    }
     return Promise.reject(new Error('Unknown endpoint'))
   })
 }
@@ -55,6 +61,12 @@ describe('App – Categories (Lab 01)', () => {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ))
       }
+      if (url.includes('/api/dev-requesters')) {
+        return Promise.resolve(new Response(
+          JSON.stringify([]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ))
+      }
       // categories returns 500
       return Promise.resolve(new Response('Internal Server Error', { status: 500 }))
     })
@@ -68,6 +80,7 @@ describe('App – Categories (Lab 01)', () => {
   })
 
   it('shows an error when a network error occurs', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
 
     render(<App />)

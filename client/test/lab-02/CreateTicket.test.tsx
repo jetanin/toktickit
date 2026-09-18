@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CreateTicket from '../../src/components/CreateTicket';
-import { Requester } from '../../src/components/RequesterSelector';
+import { Requester } from '../../src/types';
 
 const mockRequester: Requester = { id: 1, name: 'Alice Smith', email: 'alice@example.com' };
 

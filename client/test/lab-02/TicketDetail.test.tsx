@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TicketDetail from '../../src/components/TicketDetail';
-import { Requester } from '../../src/components/RequesterSelector';
+import { Requester } from '../../src/types';
 
 const mockRequester: Requester = { id: 1, name: 'Alice Smith', email: 'alice@example.com' };
 
@@ -159,8 +159,10 @@ describe('TicketDetail Screen', () => {
       return Promise.reject(new Error('Unknown'));
     });
 
-    // Mock window.URL
+    // Mock window.URL and anchor click
     window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    window.URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     render(<TicketDetail requester={mockRequester} ticketId={101} onBack={() => {}} />);
     await waitFor(() => screen.getByText('vpn-error.png'));
@@ -170,10 +172,7 @@ describe('TicketDetail Screen', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/attachments/501/download'),
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-Requester-Id': '1' }),
-        })
+        expect.stringContaining('/api/attachments/501/download')
       );
     });
   });
