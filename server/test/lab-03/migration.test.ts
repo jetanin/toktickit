@@ -7,6 +7,13 @@ describe('Lab 3: User Schema Evolution & Data Migration Suite', () => {
   beforeAll(async () => {
     // Run data migration to ensure all legacy requesters are synced to User
     await runDataMigration();
+    const origLog = console.log;
+    console.log = () => {};
+    try {
+      await runDataMigration();
+    } finally {
+      console.log = origLog;
+    }
   });
   describe('1. Legacy Requester Migration & Password Change Governance', () => {
     it('should have migrated all DevelopmentRequester rows into User table with role REQUESTER', async () => {

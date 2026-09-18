@@ -505,6 +505,8 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
 
               <span className="small text-muted ms-2">Per Page:</span>
               <select
+                id="rowsPerPageSelect"
+                aria-label="Per Page"
                 className="form-select form-select-sm w-auto"
                 value={limit}
                 onChange={(e) => {
@@ -548,8 +550,15 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
           {error || 'Access forbidden: Insufficient permissions'}
         </div>
       ) : error ? (
-        <div className="alert alert-danger" role="alert">
-          {error}
+        <div className="alert alert-danger d-flex justify-content-between align-items-center" role="alert">
+          <div>{error}</div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-danger ms-3"
+            onClick={fetchQueueTickets}
+          >
+            Retry
+          </button>
         </div>
       ) : tickets.length === 0 ? (
         <div className="card shadow-sm border-0 py-5 text-center" style={{ backgroundColor: '#FFFFFF' }}>

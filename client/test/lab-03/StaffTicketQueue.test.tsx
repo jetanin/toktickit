@@ -309,6 +309,7 @@ describe('StaffTicketQueue Screen', () => {
   });
 
   it('shows failure alert when server returns 500 error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     setupMocks([], 0, 1, 500, 'Internal Server Error');
 
     render(<StaffTicketQueue currentUser={mockStaffUser} onViewTicket={() => {}} />);
