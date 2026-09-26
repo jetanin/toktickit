@@ -450,11 +450,15 @@ Requester advisory signal indicating that their issue appears resolved (BR-11, A
 
 ## 5. Regression Endpoints Preservation (Labs 1–3)
 
-All existing endpoints from earlier labs remain active and unmodified:
+All existing endpoints from earlier labs remain active. Endpoints listed below are **unchanged** unless noted:
 
 - **Authentication**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/change-password`.
-- **Requester Ticketing**: `POST /api/tickets`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`, `POST /api/tickets/:id/problem-resolved`.
+- **Requester Ticketing**: `POST /api/tickets`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`.
 - **Attachments**: `POST /api/tickets/:id/attachments`, `GET /api/tickets/:id/attachments`, `GET /api/attachments/:id/download`, `DELETE /api/attachments/:id`.
 - **IT Staff Queue & Detail**: `GET /api/staff/tickets`, `GET /api/staff/tickets/:id`, `POST /api/staff/tickets/:id/internal-notes`, `GET /api/staff/tickets/:id/internal-notes`.
 - **Administrator Users**: `GET /api/admin/users`, `POST /api/admin/users`, `PATCH /api/admin/users/:id`, `POST /api/admin/users/:id/reset-password`.
 - **Reference & Diagnostics**: `GET /api/categories`, `GET /api/related-systems`, `GET /api/health`.
+
+**Enhanced in Lab 4** (existing endpoint, expanded business logic — see Section 4.4):
+
+- `POST /api/tickets/:id/problem-resolved`: Now sets `requesterResolutionPending = true` and appends an automated Public Comment per BR-11/AC-08. Status remains unchanged (advisory only).
