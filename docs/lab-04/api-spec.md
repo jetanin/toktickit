@@ -15,10 +15,11 @@ TokTickIT: Actions Taken, Dashboards, and Workflow Hardening
 
 ### 1.2 Optimistic Concurrency Control (OCC) Protocol
 
-- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) support an optional or mandatory `version` parameter in the request body (or query string/header `If-Match`).
+- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) accept a `version: number` attribute in the request body (or optional header `If-Match` / `updatedAt: string` fallback).
 - When `version` is supplied:
   - If `ticket.version !== req.body.version`, the mutation is aborted and the server returns `HTTP 409 Conflict`.
   - When the mutation succeeds, `ticket.version` is incremented by `1`.
+- If `version` is omitted, the server checks whether `updatedAt` matches.
 - Safe Error Body for Concurrency Conflicts:
 
 ```json
@@ -312,10 +313,10 @@ Retrieve combined operational triage metrics and enterprise user governance coun
     "priorityBreakdown": { "Critical": 3, "High": 8, "Medium": 24, "Low": 12 }
   },
   "userGovernance": {
-    "totalActiveUsers": 48,
-    "activeRequesters": 38,
-    "activeStaff": 8,
-    "activeAdministrators": 2
+    "activeUsersCount": 48,
+    "activeRequestersCount": 38,
+    "activeStaffCount": 8,
+    "activeAdminsCount": 2
   }
 }
 ```
@@ -375,7 +376,21 @@ Claim or reassign ticket owner with OCC protection.
 }
 ```
 
-- **Response** (`200 OK`): Updated ticket object with incremented `version`. Returns `409 Conflict` if version mismatch.
+- **Validation & Business Logic**:
+  - `ticketOwnerId`: Required integer referencing an active `IT_STAFF` or `ADMINISTRATOR` user.
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`.
+  - **Claiming Side-Effect (BR-09)**: If the target ticket is currently in `New` status, assigning an owner automatically transitions its status to `Open` (`currentStatus = 'Open'`). If the ticket is in any other status, `currentStatus` is unchanged.
+- **Response** (`200 OK`):
+
+```json
+{
+  "id": 101,
+  "ticketOwnerId": 2,
+  "currentStatus": "Open",
+  "version": 4,
+  "updatedAt": "2026-09-18T16:50:00.000Z"
+}
+```
 
 ---
 
@@ -393,7 +408,43 @@ Update ticket IT Priority with OCC protection.
 }
 ```
 
+- **Validation & Business Logic**:
+  - `itPriority`: Required enum string (`Low`, `Medium`, `High`, `Critical` or uppercase).
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`.
 - **Response** (`200 OK`): Updated ticket object with incremented `version`. Returns `409 Conflict` if version mismatch.
+
+---
+
+### 4.4 POST /api/tickets/:id/problem-resolved
+
+Requester advisory signal indicating that their issue appears resolved (BR-11, AC-08).
+
+- **Access**: `Requester` (Ticket owner only. Cross-requester access returns `404 Not Found`).
+- **Path Parameters**:
+  - `id` (integer, required): Target Ticket ID.
+- **Request Body**: Optional JSON payload:
+
+```json
+{
+  "comment": "Verified my issue is resolved after the RAM replacement."
+}
+```
+
+- **Validation & Business Logic**:
+  - Sets `ticket.requesterResolutionPending = true`.
+  - Appends an automated Public Comment authored by the system: `"Requester indicated the problem appears resolved."` (plus user comment if provided).
+  - **Status Immutability**: Does **NOT** alter `currentStatus` (remains in `Waiting for Requester`, `In Progress`, etc.). Formal resolution remains strictly reserved for IT Staff via Section 4.1.
+- **Response** (`200 OK`):
+
+```json
+{
+  "id": 101,
+  "ticketNumber": "TKT-2026-000101",
+  "currentStatus": "Waiting for Requester",
+  "requesterResolutionPending": true,
+  "message": "Problem indicated as resolved. Awaiting IT Staff formal resolution."
+}
+```
 
 ---
 

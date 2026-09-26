@@ -80,48 +80,61 @@ The navigation bar features the Zen Green branding (`#006B3C`), current user ind
 
 ### 3.1 IT Staff Dashboard (`/staff/dashboard`)
 
-Provides an operational command center summarizing the current service desk queue.
+Provides an operational command center summarizing the current service desk queue (aligning with Handout Page 5 reference layout).
 
 ```
 +-----------------------------------------------------------------------------------------+
-| Welcome back, Michael Chen!                                                  [Refresh]  |
-| Operational overview of active service-desk queues and triage priorities                |
+| Welcome back, Michael!                                                       [Refresh]  |
+| Here's what's happening with your queue today.                                          |
 +-----------------------------------------------------------------------------------------+
-| [Unassigned]    [My Assigned]    [New Tickets]    [In Progress]    [Waiting Req]        |
-|      14              16               10               18                7              |
-|  View Queue ->   View Queue ->    View Queue ->    View Queue ->    View Queue ->       |
+| [New]             [Open]          [In Progress]      [Waiting Req]      [My Assigned]   |
+|   14                23                 18                  7                 16         |
+| +3 from yesterday -2 from yest.   -1 from yest.      +1 from yest.      +1 from yest.   |
+| View Queue ->     View Queue ->   View Queue ->      View Queue ->      View Queue ->   |
 +-----------------------------------------------------------------------------------------+
-| PRIORITY BREAKDOWN                    | URGENT TICKETS (High & Critical)                |
-| - Critical: 3 tickets  (🔴)           | - TKT-2026-000412: Database connectivity   View |
-| - High:     8 tickets  (🟠)           | - TKT-2026-000388: Core router failure     View |
-| - Medium:  24 tickets  (🟡)           | - TKT-2026-000401: Payroll service 500     View |
-| - Low:     12 tickets  (🟢)           +-------------------------------------------------+
-|                                       | QUICK ACTIONS                                   |
-|                                       | [+ Create Ticket] [Search Queue] [My Assigned]  |
+| RECENT UPDATED TICKETS (Top 5)               | QUICK ACTIONS                            |
+| - TKT-2025-001234: Laptop battery drains...  | [+ Create Ticket] [Search Tickets]       |
+|   [In Progress]  May 12, 09:14 AM     [View] | [My Queue]        [Unassigned Queue (14)]|
+| - TKT-2025-001230: Printer badge offline     +------------------------------------------+
+|   [Open]         May 10, 02:10 PM     [View] | URGENT TICKETS (High & Critical)         |
+| - TKT-2025-001228: Outlook freezing          | - TKT-2026-000412: Database conn. [View] |
+|   [In Progress]  May 9, 03:22 PM      [View] | - TKT-2026-000388: Core router    [View] |
+| - TKT-2025-001215: Phone not receiving calls +------------------------------------------+
+|   [Open]         May 9, 10:05 AM      [View] | PRIORITY BREAKDOWN & TOTAL ACTIVE QUEUE  |
+| - TKT-2025-001119: VPN disconnects randomly  | Critical: 3, High: 8, Med: 24, Low: 12   |
+|   [Resolved]     May 8, 04:15 PM      [View] | Total Active Queue: 67 tickets           |
 +-----------------------------------------------------------------------------------------+
 ```
 
 #### A. Metric Cards Grid
 
 - **Card Anatomy**:
-  - Top label: Muted small title (e.g. `Unassigned Tickets`, `My Assigned`).
-  - Metric Value: Large bold display font (`2rem` / `32px`, Zen Green or semantic tone).
-  - Subtitle / Trend: e.g. `Unassigned across all queues`.
-  - Accessible Link / Drill-down: Clickable button or card action with `aria-label="View 14 unassigned tickets in queue"`.
+  - Top label: Muted small title (`New`, `Open`, `In Progress`, `Waiting for Requester`, `My Assigned`).
+  - Metric Value: Large bold display font (`2rem` / `32px`, Zen Green `#006B3C` or semantic tone).
+  - Trend / Context: e.g. `+3 from yesterday`, `Operational queue`.
+  - Accessible Link / Drill-down: Clickable button or card action with `aria-label="View [N] tickets in queue"`.
 - **Drill-down Destinations**:
-  - `Unassigned`: Navigates to Ticket Queue with `assigned=unassigned`.
-  - `My Assigned`: Navigates to Ticket Queue with `assigned=me`.
   - `New`: Navigates to Ticket Queue with `status=New`.
+  - `Open`: Navigates to Ticket Queue with `status=Open`.
   - `In Progress`: Navigates to Ticket Queue with `status=In+Progress`.
   - `Waiting for Requester`: Navigates to Ticket Queue with `status=Waiting+for+Requester`.
+  - `My Assigned`: Navigates to Ticket Queue with `assigned=me`.
+  - `Unassigned Queue`: Accessible from Quick Actions panel, navigates to Ticket Queue with `assigned=unassigned` (count: 14).
 
-#### B. Urgent Tickets List
+#### B. Recent Updated Tickets Table (`recentUpdatedTickets`)
 
-- Displays up to 5 tickets where status is active and `itPriority IN ('CRITICAL', 'HIGH')`.
+- Positioned prominently in the left-hand main container (matching Handout Page 5).
+- Displays top 5 tickets across the queue ordered by `updatedAt DESC`.
+- Row items: Ticket Number (e.g. `TKT-2025-001234`), Summary, Status badge, formatted timestamp (`May 12, 09:14 AM`), and direct `[View]` button linking to Ticket Detail.
+- **Empty State**: Centered neutral container with text: _"No recent tickets in queue."_
+
+#### C. Urgent Tickets List
+
+- Displays up to 5 tickets where status is active and `itPriority IN ('Critical', 'High')`.
 - Displays: Ticket Number, Summary, Priority badge, Created date, and direct "View" button opening Ticket Detail.
 - **Empty State**: Centered checkmark icon with text: _"No urgent or critical tickets requiring immediate attention."_
 
-#### C. Safe Failure & Retry
+#### D. Safe Failure & Retry
 
 - If dashboard API fetch fails, displays an alert banner: `"Unable to load dashboard data: [Error Details]"` accompanied by a `"Retry"` button calling `fetchDashboardData()`.
 

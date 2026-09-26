@@ -160,11 +160,17 @@ The IT Service Desk organization has established core identity management and co
 ### 5.3 Optimistic Concurrency Control (OCC)
 
 - **BR-12**: **Stale Update Rejection**:
-  - Every Ticket maintains an integer `version` attribute (incremented on each successful mutation) and an `updatedAt` timestamp.
-  - When an IT Staff or Administrator user submits an operational mutation (`PATCH /api/staff/tickets/:id/*`), the request must include the client's `lastKnownVersion` (or `lastKnownUpdatedAt`).
-  - If the database `version` does not match the submitted version, the update is aborted, and the server responds with `HTTP 409 Conflict` containing the fresh ticket state.
+  - Every Ticket maintains an integer `version` attribute (incremented by 1 on each successful mutation) and an `updatedAt` timestamp.
+  - When an IT Staff or Administrator user submits an operational mutation (`PATCH /api/staff/tickets/:id/*`), the request payload specifies `version: number`.
+  - The server checks whether the incoming `version` matches `ticket.version` in the database. If omitted, the server optionally falls back to checking `updatedAt: string` or header `If-Match`.
+  - If the version does not match, the update is aborted, and the server responds with `HTTP 409 Conflict` containing error code `CONCURRENCY_CONFLICT` and fresh ticket state.
 
 ### 5.4 Dashboard Metric Definitions & Boundaries
+
+- **Representation Note (DB Enum vs. API/UI String)**:
+  - **Database Layer**: Prisma/PostgreSQL enums use uppercase snake case (`NEW`, `OPEN`, `IN_PROGRESS`, `WAITING_FOR_REQUESTER`, `RESOLVED`, `CLOSED`, `REOPENED`, `CANCELLED`; `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; `REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`; `PENDING`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`).
+  - **API & UI Serialization**: REST responses serialize statuses and priorities in Title Case (`"New"`, `"Open"`, `"In Progress"`, `"Waiting for Requester"`, `"Resolved"`, `"Closed"`, `"Reopened"`, `"Cancelled"`; `"Low"`, `"Medium"`, `"High"`, `"Critical"`).
+  - **Input Parsing**: Server endpoints accept both Title Case and raw enum strings.
 
 - **BR-13**: **Requester Dashboard Calculations**:
   1. `openTicketsCount`: Count of tickets where `requesterId = user.id` AND `currentStatus IN ('NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'REOPENED')`.
@@ -173,12 +179,13 @@ The IT Service Desk organization has established core identity management and co
   4. `closedTicketsCount`: Count of tickets where `requesterId = user.id` AND `currentStatus = 'CLOSED'`.
   5. `recentTickets`: Top 5 tickets where `requesterId = user.id`, ordered by `updatedAt DESC`.
 - **BR-14**: **IT Staff Dashboard Calculations**:
-  1. `unassignedCount`: Count of tickets where `ticketOwnerId IS NULL` AND `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')`.
-  2. `myAssignedCount`: Count of tickets where `ticketOwnerId = user.id` AND `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')`.
-  3. `statusBreakdown`: Key-value map of counts for active statuses (`NEW`, `OPEN`, `IN_PROGRESS`, `WAITING_FOR_REQUESTER`, `REOPENED`).
-  4. `priorityBreakdown`: Key-value map of counts for active tickets grouped by `itPriority` (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
-  5. `urgentTickets`: Tickets where `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')` AND `itPriority IN ('CRITICAL', 'HIGH')`, ordered by `itPriority ASC, createdAt ASC`, limit 5.
-  6. `recentUpdatedTickets`: Top 5 tickets across the queue ordered by `updatedAt DESC`.
+  1. `totalActiveQueueCount`: Count of all active tickets across the queue where `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')` (sum of `NEW`, `OPEN`, `IN_PROGRESS`, `WAITING_FOR_REQUESTER`, `REOPENED`).
+  2. `unassignedCount`: Count of tickets where `ticketOwnerId IS NULL` AND `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')`.
+  3. `myAssignedCount`: Count of tickets where `ticketOwnerId = user.id` AND `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')`.
+  4. `statusBreakdown`: Key-value map of counts for active statuses (`New`, `Open`, `In Progress`, `Waiting for Requester`, `Reopened`).
+  5. `priorityBreakdown`: Key-value map of counts for active tickets grouped by `itPriority` (`Critical`, `High`, `Medium`, `Low`).
+  6. `urgentTickets`: Tickets where `currentStatus NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED')` AND `itPriority IN ('CRITICAL', 'HIGH')`, ordered by `itPriority ASC, createdAt ASC`, limit 5.
+  7. `recentUpdatedTickets`: Top 5 tickets across the queue ordered by `updatedAt DESC`.
 - **BR-15**: **Administrator Dashboard Calculations**:
   - Includes all IT Staff Dashboard metrics plus:
     1. `activeUsersCount`: Count of `User` where `isActive = true`.
@@ -311,6 +318,7 @@ model ActionTaken {
 | `GET`   | `/api/requester/dashboard`                       | Requester                       | Retrieve personal dashboard metrics and top 5 recent tickets               |
 | `GET`   | `/api/staff/dashboard`                           | IT Staff, Admin                 | Retrieve operational queue metrics, priority breakdown, and urgent tickets |
 | `GET`   | `/api/admin/dashboard`                           | Admin                           | Retrieve operational metrics combined with user account stats              |
+| `POST`  | `/api/tickets/:id/problem-resolved`              | Requester (Owner)               | Advisory resolution indicator (`requesterResolutionPending = true`)        |
 | `PATCH` | `/api/staff/tickets/:id/status`                  | IT Staff, Admin                 | Advance ticket status (enforces Resolution Gate and OCC `version`)         |
 | `PATCH` | `/api/staff/tickets/:id/owner`                   | IT Staff, Admin                 | Claim or reassign ticket owner (enforces OCC `version`)                    |
 | `PATCH` | `/api/staff/tickets/:id/priority`                | IT Staff, Admin                 | Update IT Priority (enforces OCC `version`)                                |
@@ -392,9 +400,9 @@ model ActionTaken {
   _And_ User B subsequently submits an update with version 3,
   _Then_ User B's request is rejected with `HTTP 409 Conflict` and the updated ticket data is returned for client-side reconciliation.
 - **AC-15**: **Zero Regression Across Labs 1–3**:
-  _Given_ the complete TokTickIT test suite,
+  _Given_ the complete TokTickIT baseline test suites from Labs 1 through 3,
   _When_ executed against the upgraded server and client,
-  _Then_ all 196 existing server tests, 74 client tests, and E2E suites pass 100% green without modification to business contracts.
+  _Then_ all existing baseline server test suites, client test suites, and E2E suites pass 100% green without modification to business contracts or breaking regressions.
 
 ---
 
@@ -403,12 +411,11 @@ model ActionTaken {
 1. **Specification & Contracts**: Complete `docs/lab-04/` specification, ui-spec, api-spec, and tests documents reviewed and aligned with stakeholder goals.
 2. **Schema & Migration**: Prisma schema updated with `ActionTaken` model and `version` concurrency column; clean, idempotent migration and backfill scripts tested without data loss.
 3. **Automated Test Coverage**:
-   - Unit tests covering status transition matrix, OCC conflict detection, and calculation boundaries.
-   - API integration tests covering Actions Taken CRUD, authorization, dashboard endpoints, and OCC conflicts.
-   - Vitest component tests covering Dashboards, Actions Taken list/modals, and Ticket Workflow controls.
-   - Playwright E2E suites covering Actions Taken workflows, resolution gates, and multi-role dashboard drill-downs.
+   - Unit & API integration tests located in `server/tests/lab-04/` covering Actions Taken CRUD, status transition matrix, Resolution Gate, OCC 409 conflicts, and dashboard metrics.
+   - Vitest component tests located in `client/tests/lab-04/` covering Dashboards, Actions Taken list/modals, and Ticket Workflow controls.
+   - Playwright E2E suites located in `e2e/lab-04/` covering Actions Taken workflows, resolution gates, and multi-role dashboard drill-downs.
 4. **UI & Design Fidelity**: Zen Green theme adhered to consistently across all viewports (375px, 768px, 1280px) with zero horizontal overflow, visible focus indicators, and accessible touch targets (≥ 44px).
-5. **Quality & Test Hygiene**: 100% green test execution across all new and existing test files with zero unhandled rejections, noisy warnings, or console errors.
+5. **Quality & Test Hygiene**: 100% green test execution across all new and existing regression test suites with zero unhandled rejections, noisy warnings, or console errors.
 
 ---
 
@@ -418,4 +425,4 @@ model ActionTaken {
 2. **Assignee Defaulting**: If `assigneeId` is omitted in the creation request payload, it defaults to the authenticated creator (`performedById`).
 3. **Resolution Gate Rule**: Requiring at least one Action Taken before setting status to `Resolved` directly answers the stakeholder's demand: _"we still need a reliable way to plan and track the actual work... IT Staff must review the work and formally update the Ticket."_
 4. **Time Window for Recently Resolved Metric**: "Recently Resolved" on dashboards is bounded to tickets resolved within the last 30 calendar days to keep metrics operationally actionable.
-5. **OCC Mechanism**: Concurrency conflicts are checked using an integer `version` field on `Ticket`. If a client does not supply `version`, the server falls back to matching `lastKnownUpdatedAt` ISO string.
+5. **OCC Mechanism**: Concurrency conflicts are checked primarily using an integer `version` field in the request body. If a client does not supply `version`, the server optionally falls back to matching `updatedAt` ISO string or `If-Match` header.
