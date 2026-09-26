@@ -53,6 +53,18 @@ TokTickIT: Actions Taken, Dashboards, and Workflow Hardening
 { "error": "Internal Server Error" }
 ```
 
+### 1.4 Wire Format Convention (Enum Serialization)
+
+All status and priority enums follow a single consistent convention across the API:
+
+- **Canonical Wire Format (Request & Response)**: **Title Case** with spaces.
+  - Ticket Status values: `"New"`, `"Open"`, `"In Progress"`, `"Waiting for Requester"`, `"Resolved"`, `"Closed"`, `"Reopened"`, `"Cancelled"`.
+  - Priority values: `"Low"`, `"Medium"`, `"High"`, `"Critical"`.
+  - Action Status values: `"Pending"`, `"In Progress"`, `"Completed"`, `"Cancelled"`.
+- **Database Storage**: Prisma/PostgreSQL enums use SCREAMING_SNAKE_CASE (`RESOLVED`, `IN_PROGRESS`, `WAITING_FOR_REQUESTER`, `HIGH`, etc.). This is an internal detail — clients never see or send these raw values.
+- **Input Tolerance**: The server normalizes incoming status/priority strings (via `parseStatus` / `parsePriority`) so `"Resolved"`, `"resolved"`, and `"RESOLVED"` are all accepted. However, **clients should always send the canonical Title Case form** shown above.
+- **Output Guarantee**: All API responses serialize statuses and priorities in Title Case, never raw DB enum values.
+
 ---
 
 ## 2. Actions Taken Endpoints
