@@ -341,7 +341,7 @@ model ActionTaken {
 - **AC-01**: **Valid Action Taken Creation**:
   _Given_ an authenticated IT Staff user and valid input data (`description`, `result`, `isFollowUpRequired = false`),
   _When_ the user submits `POST /api/staff/tickets/:id/actions-taken`,
-  _Then_ the system creates an `ActionTaken` linked to the ticket with `performedById` set to the caller, defaults `status = COMPLETED`, and returns `HTTP 201 Created`.
+  _Then_ the system creates an `ActionTaken` linked to the ticket with `performedById` set to the caller, defaults `status = "Completed"`, and returns `HTTP 201 Created`.
 - **AC-02**: **Follow-Up Coupling Validation**:
   _Given_ an authenticated IT Staff user submitting an Action Taken with `isFollowUpRequired = true` but an empty `followUpNote`,
   _When_ `POST /api/staff/tickets/:id/actions-taken` is called,
@@ -370,7 +370,7 @@ model ActionTaken {
 - **AC-07**: **Resolution Gate - Successful Resolution**:
   _Given_ a ticket in `In Progress` status that has at least one recorded Action Taken,
   _When_ an IT Staff member transitions status to `Resolved` with a valid `resolutionSummary`,
-  _Then_ the server updates status to `RESOLVED`, clears `requesterResolutionPending`, and returns `HTTP 200 OK`.
+  _Then_ the server updates status to `"Resolved"`, clears `requesterResolutionPending`, and returns `HTTP 200 OK`.
 - **AC-08**: **Advisory Requester Resolution**:
   _Given_ an authenticated Requester viewing their open ticket,
   _When_ the Requester clicks "Problem Appears Resolved",
@@ -378,9 +378,9 @@ model ActionTaken {
 - **AC-09**: **Final Status Closure and Reopening**:
   _Given_ a ticket in `Resolved` status,
   _When_ an IT Staff user transitions to `Closed`,
-  _Then_ status advances to `CLOSED` (`HTTP 200 OK`).
+  _Then_ status advances to `"Closed"` (`HTTP 200 OK`).
   _When_ an IT Staff user transitions from `Closed` to `Reopened`,
-  _Then_ status transitions to `REOPENED` (`HTTP 200 OK`).
+  _Then_ status transitions to `"Reopened"` (`HTTP 200 OK`).
 
 ### Dashboards & Calculations
 

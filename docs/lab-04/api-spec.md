@@ -93,12 +93,14 @@ Retrieve all Actions Taken lines for a specific ticket in chronological order.
       "description": "Replaced primary DDR5 memory module with 16GB certified stock.",
       "result": "MemTest86 completed 4 passes with 0 errors. Machine booted cleanly.",
       "status": "Completed",
+      "performedById": 2,
       "performedBy": {
         "id": 2,
         "name": "Sarah Jenkins",
         "email": "sarah.it@toktick.it",
         "role": "IT_STAFF"
       },
+      "assigneeId": 2,
       "assignee": {
         "id": 2,
         "name": "Sarah Jenkins",
@@ -162,13 +164,15 @@ Create a new Action Taken line under the specified ticket.
   "performedBy": {
     "id": 2,
     "name": "Sarah Jenkins",
-    "email": "sarah.it@toktick.it"
+    "email": "sarah.it@toktick.it",
+    "role": "IT_STAFF"
   },
   "assigneeId": 2,
   "assignee": {
     "id": 2,
     "name": "Sarah Jenkins",
-    "email": "sarah.it@toktick.it"
+    "email": "sarah.it@toktick.it",
+    "role": "IT_STAFF"
   },
   "isFollowUpRequired": true,
   "followUpNote": "Monitor crash dump logs after user runs heavy compile workloads.",
