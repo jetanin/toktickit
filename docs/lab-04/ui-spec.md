@@ -89,7 +89,7 @@ Provides an operational command center summarizing the current service desk queu
 +-----------------------------------------------------------------------------------------+
 | [New]             [Open]          [In Progress]      [Waiting Req]      [My Assigned]   |
 |   14                23                 18                  7                 16         |
-| +3 from yesterday -2 from yest.   -1 from yest.      +1 from yest.      +1 from yest.   |
+| Awaiting Triage   Ready for Work  Active Work        Requires User      Assigned to me  |
 | View Queue ->     View Queue ->   View Queue ->      View Queue ->      View Queue ->   |
 +-----------------------------------------------------------------------------------------+
 | RECENT UPDATED TICKETS (Top 5)               | QUICK ACTIONS                            |
@@ -111,7 +111,7 @@ Provides an operational command center summarizing the current service desk queu
 - **Card Anatomy**:
   - Top label: Muted small title (`New`, `Open`, `In Progress`, `Waiting for Requester`, `My Assigned`).
   - Metric Value: Large bold display font (`2rem` / `32px`, Zen Green `#006B3C` or semantic tone).
-  - Trend / Context: e.g. `+3 from yesterday`, `Operational queue`.
+  - Operational Context: e.g. `Awaiting Triage`, `Ready for Work`, `Requires User`, `Assigned to me`.
   - Accessible Link / Drill-down: Clickable button or card action with `aria-label="View [N] tickets in queue"`.
 - **Drill-down Destinations**:
   - `New`: Navigates to Ticket Queue with `status=New`.
@@ -287,7 +287,7 @@ Positioned prominently within the Ticket Detail screen as a dedicated section be
     - The `"Confirm Resolution"` submit button is disabled.
   - If ticket has **≥ 1 Actions Taken**:
     - Displays textarea for `Resolution Summary *` (1–1,000 characters) with live character counter.
-    - `"Confirm Resolution"` primary button submits `PATCH /api/staff/tickets/:id/status` with `status: "RESOLVED"` and `resolutionSummary`.
+    - `"Confirm Resolution"` primary button submits `PATCH /api/staff/tickets/:id/status` with `status: "Resolved"` and `resolutionSummary`.
 
 #### C. Optimistic Concurrency Conflict UI
 

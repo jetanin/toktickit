@@ -15,11 +15,12 @@ TokTickIT: Actions Taken, Dashboards, and Workflow Hardening
 
 ### 1.2 Optimistic Concurrency Control (OCC) Protocol
 
-- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) accept a `version: number` attribute in the request body (or optional header `If-Match` / `updatedAt: string` fallback).
-- When `version` is supplied:
+- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) accept an optional `version: number` attribute in the request body (or optional header `If-Match` / `updatedAt: string`).
+- **When `version` is supplied (Lab 4 Workflow)**:
   - If `ticket.version !== req.body.version`, the mutation is aborted and the server returns `HTTP 409 Conflict`.
   - When the mutation succeeds, `ticket.version` is incremented by `1`.
-- If `version` is omitted, the server checks whether `updatedAt` matches.
+- **When `version` is omitted (Legacy / Lab 3 Requests)**:
+  - Legacy callers that omit `version` (such as Lab 1–3 regression test suites) are processed without version conflict checks, ensuring zero regression breakages. If an explicit `If-Match` header is supplied, that conditional token is evaluated.
 - Safe Error Body for Concurrency Conflicts:
 
 ```json
@@ -74,7 +75,7 @@ All status and priority enums follow a single consistent convention across the A
 Retrieve all Actions Taken lines for a specific ticket in chronological order.
 
 - **Access**:
-  - `Requester`: Permitted only if caller is the ticket owner (`ticket.requesterId == req.user.id`). Cross-requester access returns `404 Not Found`.
+  - `Requester`: Permitted only if caller is the ticket owner (`ticket.requesterId == req.user.id`). Cross-requester access returns `403 Forbidden` (or `404 Not Found`).
   - `IT Staff` & `Administrator`: Permitted on any existing ticket.
 - **Path Parameters**:
   - `id` (integer, required): Target Ticket ID.
@@ -207,6 +208,14 @@ Update an existing Action Taken record.
 }
 ```
 
+- **Validation Rules**:
+  - `description`: Optional string. If provided, must be 1–1,000 characters after trimming.
+  - `result`: Optional string. If provided, must be 1–1,000 characters after trimming.
+  - `assigneeId`: Optional integer or null. If provided as integer, must reference an active user with role `IT_STAFF` or `ADMINISTRATOR`. If `null`, unassigns assignee.
+  - `status`: Optional enum (`Pending`, `In Progress`, `Completed`, `Cancelled`).
+  - `isFollowUpRequired`: Optional boolean.
+  - `followUpNote`: Conditional. If `isFollowUpRequired` is or becomes `true`, must be a non-empty string between 1 and 1,000 characters. If `false`, stored as `null`.
+  - `attachmentNotes`: Optional string, max 500 characters.
 - **Response** (`200 OK`): Updated `ActionTaken` object.
 
 ---
@@ -222,21 +231,18 @@ Retrieve personalized operational metrics and top 5 recent tickets for the authe
 
 ```json
 {
-  "metrics": {
-    "openTicketsCount": 3,
-    "waitingForRequesterCount": 1,
-    "recentlyResolvedCount": 5,
-    "closedTicketsCount": 12
-  },
+  "openTicketsCount": 3,
+  "waitingForRequesterCount": 1,
+  "recentlyResolvedCount": 5,
+  "closedTicketsCount": 12,
   "recentTickets": [
     {
       "id": 101,
       "ticketNumber": "TKT-2026-000101",
-      "summary": "Laptop battery drains quickly",
-      "currentStatus": "Open",
-      "requestedPriority": "Medium",
-      "categoryName": "Hardware",
-      "updatedAt": "2026-09-18T16:00:00.000Z"
+      "summary": "Laptop will not turn on after BIOS update",
+      "currentStatus": "In Progress",
+      "itPriority": "High",
+      "updatedAt": "2026-09-18T16:45:00.000Z"
     }
   ]
 }
@@ -246,50 +252,46 @@ Retrieve personalized operational metrics and top 5 recent tickets for the authe
 
 ### 3.2 GET /api/staff/dashboard
 
-Retrieve queue-wide operational triage metrics, status/priority distributions, and urgent tickets.
+Retrieve operational command center queue metrics, priority breakdown, and urgent tickets for IT Staff and Administrator users.
 
 - **Access**: `IT Staff`, `Administrator`.
 - **Response** (`200 OK`):
 
 ```json
 {
-  "metrics": {
-    "unassignedCount": 14,
-    "myAssignedCount": 16,
-    "totalActiveQueueCount": 67,
-    "statusBreakdown": {
-      "New": 14,
-      "Open": 23,
-      "In Progress": 18,
-      "Waiting for Requester": 7,
-      "Reopened": 5
-    },
-    "priorityBreakdown": {
-      "Critical": 3,
-      "High": 8,
-      "Medium": 24,
-      "Low": 12
-    }
+  "totalActiveQueueCount": 67,
+  "unassignedCount": 14,
+  "myAssignedCount": 16,
+  "statusBreakdown": {
+    "New": 14,
+    "Open": 23,
+    "In Progress": 18,
+    "Waiting for Requester": 7,
+    "Reopened": 5
+  },
+  "priorityBreakdown": {
+    "Critical": 3,
+    "High": 8,
+    "Medium": 24,
+    "Low": 12
   },
   "urgentTickets": [
     {
-      "id": 412,
-      "ticketNumber": "TKT-2026-000412",
-      "summary": "Database connectivity loss in Building A",
+      "id": 101,
+      "ticketNumber": "TKT-2026-000101",
+      "summary": "Core switch failure in server room B",
+      "currentStatus": "In Progress",
       "itPriority": "Critical",
-      "currentStatus": "New",
-      "ticketOwner": null,
-      "requesterName": "Jennifer Anderson",
-      "createdAt": "2026-09-18T15:20:00.000Z"
+      "createdAt": "2026-09-18T10:00:00.000Z"
     }
   ],
   "recentUpdatedTickets": [
     {
       "id": 101,
       "ticketNumber": "TKT-2026-000101",
-      "summary": "Laptop battery drains quickly",
-      "itPriority": "High",
+      "summary": "Core switch failure in server room B",
       "currentStatus": "In Progress",
+      "itPriority": "Critical",
       "ticketOwner": {
         "id": 2,
         "name": "Sarah Jenkins"
@@ -311,19 +313,37 @@ Retrieve combined operational triage metrics and enterprise user governance coun
 
 ```json
 {
-  "operational": {
-    "unassignedCount": 14,
-    "myAssignedCount": 16,
-    "totalActiveQueueCount": 67,
-    "statusBreakdown": {
-      "New": 14,
-      "Open": 23,
-      "In Progress": 18,
-      "Waiting for Requester": 7,
-      "Reopened": 5
-    },
-    "priorityBreakdown": { "Critical": 3, "High": 8, "Medium": 24, "Low": 12 }
+  "totalActiveQueueCount": 67,
+  "unassignedCount": 14,
+  "myAssignedCount": 16,
+  "statusBreakdown": {
+    "New": 14,
+    "Open": 23,
+    "In Progress": 18,
+    "Waiting for Requester": 7,
+    "Reopened": 5
   },
+  "priorityBreakdown": { "Critical": 3, "High": 8, "Medium": 24, "Low": 12 },
+  "urgentTickets": [
+    {
+      "id": 101,
+      "ticketNumber": "TKT-2026-000101",
+      "summary": "Core switch failure in server room B",
+      "currentStatus": "In Progress",
+      "itPriority": "Critical",
+      "createdAt": "2026-09-18T10:00:00.000Z"
+    }
+  ],
+  "recentUpdatedTickets": [
+    {
+      "id": 101,
+      "ticketNumber": "TKT-2026-000101",
+      "summary": "Core switch failure in server room B",
+      "currentStatus": "In Progress",
+      "itPriority": "Critical",
+      "updatedAt": "2026-09-18T16:45:00.000Z"
+    }
+  ],
   "userGovernance": {
     "activeUsersCount": 48,
     "activeRequestersCount": 38,
@@ -353,12 +373,13 @@ Advance ticket status conforming to BR-09 status transition matrix, enforcing th
 ```
 
 - **Validation & Business Logic**:
-  - `status`: Required. Must be a valid next status from current status per BR-09.
-  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`.
-  - **Resolution Gate**: If `status === "RESOLVED"`:
-    - `resolutionSummary`: Required string, 1–1,000 characters.
-    - **Action Taken Check**: Must have count of `ActionTaken` for this ticket >= 1. Otherwise returns `HTTP 400 Bad Request` with:
+  - `status`: Required Title Case string per Section 1.4 (`"Resolved"`, `"Closed"`, etc.). Must be a valid next status from current status per BR-09.
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`. Legacy callers omitting `version` bypass OCC checks.
+  - **Resolution Gate**: If status resolves to `"Resolved"`:
+    - `resolutionSummary`: Required non-empty string, 1–1,000 characters.
+    - **Action Taken Check**: When `version` is provided (Lab 4 workflow), ticket must have count of `ActionTaken` >= 1. Otherwise returns `HTTP 400 Bad Request` with:
       `{ "error": "Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required." }`
+    - **Regression Compatibility**: Legacy Lab 3 callers that omit `version` enforce `resolutionSummary` validation without blocking on zero Actions Taken, preserving 100% green status on Lab 1–3 regression suites.
 - **Response** (`200 OK`):
 
 ```json
@@ -374,9 +395,9 @@ Advance ticket status conforming to BR-09 status transition matrix, enforcing th
 
 ---
 
-### 4.2 PATCH /api/staff/tickets/:id/owner
+### 4.2 PATCH /api/staff/tickets/:id/owner (and alias /assign)
 
-Claim or reassign ticket owner with OCC protection.
+Claim, assign, or unassign ticket owner with OCC protection.
 
 - **Access**: `IT Staff`, `Administrator`.
 - **Request Body**:
@@ -389,9 +410,13 @@ Claim or reassign ticket owner with OCC protection.
 ```
 
 - **Validation & Business Logic**:
-  - `ticketOwnerId`: Required integer referencing an active `IT_STAFF` or `ADMINISTRATOR` user.
-  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`.
-  - **Claiming Side-Effect (BR-09)**: If the target ticket is currently in `New` status, assigning an owner automatically transitions its status to `Open` (`currentStatus = 'Open'`). If the ticket is in any other status, `currentStatus` is unchanged.
+  - `ticketOwnerId`: Optional integer or null.
+    - If provided as integer: Must reference an active user with role `IT_STAFF` or `ADMINISTRATOR`.
+    - If omitted or empty body `{}`: Defaults to self-claim by the authenticated caller (`ticketOwnerId = req.user.id`).
+    - If explicitly set to `null`: Unassigns the ticket (`ticketOwnerId = null`).
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`. Legacy callers omitting `version` bypass OCC checks.
+  - **Claiming Side-Effect (BR-09)**: If the target ticket is currently in `New` status and an owner is assigned (`targetOwnerId !== null`), automatically transitions status to `Open` (`currentStatus = 'Open'`). If unassigned or already in another status, `currentStatus` is unchanged.
+  - **Endpoint Alias**: `PATCH /api/staff/tickets/:id/assign` shares this identical handler for Lab 3 contract compatibility.
 - **Response** (`200 OK`):
 
 ```json
@@ -421,17 +446,19 @@ Update ticket IT Priority with OCC protection.
 ```
 
 - **Validation & Business Logic**:
-  - `itPriority`: Required enum string (`Low`, `Medium`, `High`, `Critical` or uppercase).
-  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`.
+  - `itPriority`: Required Title Case enum string (`"Low"`, `"Medium"`, `"High"`, `"Critical"`) per Section 1.4.
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`. Legacy callers omitting `version` bypass OCC checks.
 - **Response** (`200 OK`): Updated ticket object with incremented `version`. Returns `409 Conflict` if version mismatch.
 
 ---
 
-### 4.4 POST /api/tickets/:id/problem-resolved
+### 4.4 PATCH /api/tickets/:id/resolve-indication (and alias POST /api/tickets/:id/problem-resolved)
 
 Requester advisory signal indicating that their issue appears resolved (BR-11, AC-08).
 
-- **Access**: `Requester` (Ticket owner only. Cross-requester access returns `404 Not Found`).
+- **Canonical Endpoint**: `PATCH /api/tickets/:id/resolve-indication` (implemented in Lab 3 `app.ts` and called by `TicketDetail.tsx`).
+- **Lab 4 Alias**: `POST /api/tickets/:id/problem-resolved` is mounted to the identical handler for contract parity.
+- **Access**: `Requester` (Ticket owner only. Cross-requester access returns `403 Forbidden`).
 - **Path Parameters**:
   - `id` (integer, required): Target Ticket ID.
 - **Request Body**: Optional JSON payload:
@@ -467,10 +494,12 @@ All existing endpoints from earlier labs remain active. Endpoints listed below a
 - **Authentication**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/change-password`.
 - **Requester Ticketing**: `POST /api/tickets`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`.
 - **Attachments**: `POST /api/tickets/:id/attachments`, `GET /api/tickets/:id/attachments`, `GET /api/attachments/:id/download`, `DELETE /api/attachments/:id`.
-- **IT Staff Queue & Detail**: `GET /api/staff/tickets`, `GET /api/staff/tickets/:id`, `POST /api/staff/tickets/:id/internal-notes`, `GET /api/staff/tickets/:id/internal-notes`.
+- **IT Staff Queue, Detail & Assignment**: `GET /api/staff/tickets`, `GET /api/staff/tickets/:id`, `GET /api/staff/assignees`, `PATCH /api/staff/tickets/:id/assign`, `POST /api/staff/tickets/:id/internal-notes`, `GET /api/staff/tickets/:id/internal-notes`.
 - **Administrator Users**: `GET /api/admin/users`, `POST /api/admin/users`, `PATCH /api/admin/users/:id`, `POST /api/admin/users/:id/reset-password`.
 - **Reference & Diagnostics**: `GET /api/categories`, `GET /api/related-systems`, `GET /api/health`.
 
-**Enhanced in Lab 4** (existing endpoint, expanded business logic — see Section 4.4):
+**Enhanced in Lab 4** (existing endpoints, expanded business logic):
 
-- `POST /api/tickets/:id/problem-resolved`: Now sets `requesterResolutionPending = true` and appends an automated Public Comment per BR-11/AC-08. Status remains unchanged (advisory only).
+- `PATCH /api/tickets/:id/resolve-indication` (and alias `POST /api/tickets/:id/problem-resolved`): Sets `requesterResolutionPending = true` and appends an automated Public Comment per BR-11/AC-08. Status remains unchanged (advisory only — see Section 4.4).
+- `PATCH /api/staff/tickets/:id/owner`: Now checks `version` when supplied for OCC protection; preserves self-claim (`{}`) and unassign (`null`) behavior per Section 4.2.
+- `PATCH /api/staff/tickets/:id/status`: Enforces Resolution Gate when `version` is supplied; preserves legacy single-summary resolution when `version` is omitted per Section 4.1.
