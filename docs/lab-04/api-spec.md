@@ -91,7 +91,7 @@ Retrieve all Actions Taken lines for a specific ticket in chronological order.
       "actionDateTime": "2026-09-18T14:30:00.000Z",
       "description": "Replaced primary DDR5 memory module with 16GB certified stock.",
       "result": "MemTest86 completed 4 passes with 0 errors. Machine booted cleanly.",
-      "status": "COMPLETED",
+      "status": "Completed",
       "performedBy": {
         "id": 2,
         "name": "Sarah Jenkins",
@@ -131,7 +131,7 @@ Create a new Action Taken line under the specified ticket.
   "description": "Replaced primary DDR5 memory module with 16GB certified stock.",
   "result": "MemTest86 completed 4 passes with 0 errors. Machine booted cleanly.",
   "assigneeId": 2,
-  "status": "COMPLETED",
+  "status": "Completed",
   "isFollowUpRequired": true,
   "followUpNote": "Monitor crash dump logs after user runs heavy compile workloads.",
   "attachmentNotes": "memtest_pass.png uploaded to Attachments."
@@ -143,7 +143,7 @@ Create a new Action Taken line under the specified ticket.
   - `description`: Required string, 1–1,000 characters after trimming.
   - `result`: Required string, 1–1,000 characters after trimming.
   - `assigneeId`: Optional integer. If provided, must reference an active user with role `IT_STAFF` or `ADMINISTRATOR`. Defaults to authenticated caller.
-  - `status`: Optional enum (`PENDING`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`). Defaults to `COMPLETED`.
+  - `status`: Optional enum (`Pending`, `In Progress`, `Completed`, `Cancelled`). Defaults to `"Completed"`.
   - `isFollowUpRequired`: Optional boolean, defaults to `false`.
   - `followUpNote`: Conditional. If `isFollowUpRequired = true`, must be non-empty string between 1 and 1,000 characters. If `false`, ignored or stored as `null`.
   - `attachmentNotes`: Optional string, max 500 characters.
@@ -156,7 +156,7 @@ Create a new Action Taken line under the specified ticket.
   "actionDateTime": "2026-09-18T14:30:00.000Z",
   "description": "Replaced primary DDR5 memory module with 16GB certified stock.",
   "result": "MemTest86 completed 4 passes with 0 errors. Machine booted cleanly.",
-  "status": "COMPLETED",
+  "status": "Completed",
   "performedById": 2,
   "performedBy": {
     "id": 2,
@@ -200,7 +200,7 @@ Update an existing Action Taken record.
   "description": "Updated technical description",
   "result": "Updated diagnostic result",
   "assigneeId": 3,
-  "status": "COMPLETED",
+  "status": "Completed",
   "isFollowUpRequired": false,
   "followUpNote": null,
   "attachmentNotes": "Updated notes"

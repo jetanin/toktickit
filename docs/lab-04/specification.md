@@ -169,7 +169,7 @@ The IT Service Desk organization has established core identity management and co
 
 - **Representation Note (DB Enum vs. API/UI String)**:
   - **Database Layer**: Prisma/PostgreSQL enums use uppercase snake case (`NEW`, `OPEN`, `IN_PROGRESS`, `WAITING_FOR_REQUESTER`, `RESOLVED`, `CLOSED`, `REOPENED`, `CANCELLED`; `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; `REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`; `PENDING`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`).
-  - **API & UI Serialization**: REST responses serialize statuses and priorities in Title Case (`"New"`, `"Open"`, `"In Progress"`, `"Waiting for Requester"`, `"Resolved"`, `"Closed"`, `"Reopened"`, `"Cancelled"`; `"Low"`, `"Medium"`, `"High"`, `"Critical"`).
+  - **API & UI Serialization**: REST responses serialize statuses, priorities, and action statuses in Title Case (`"New"`, `"Open"`, `"In Progress"`, `"Waiting for Requester"`, `"Resolved"`, `"Closed"`, `"Reopened"`, `"Cancelled"`; `"Low"`, `"Medium"`, `"High"`, `"Critical"`; `"Pending"`, `"In Progress"`, `"Completed"`, `"Cancelled"`).
   - **Input Parsing**: Server endpoints accept both Title Case and raw enum strings.
 
 - **BR-13**: **Requester Dashboard Calculations**:
