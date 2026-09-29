@@ -32,7 +32,7 @@ import staffRouter from './routes/staff';
 import adminRouter from './routes/admin';
 import { authenticateSession, gatePasswordChange } from './middleware/auth';
 import { COOKIE_NAME } from './utils/auth';
-import { formatTicket, parseStatus, parsePriority } from './utils/format';
+import { formatTicket, parseStatus, parsePriority, formatActionTaken } from './utils/format';
 
 const app = express();
 app.use(cors());
@@ -920,6 +920,75 @@ app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, r
     });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2.1 GET /api/tickets/:id/actions-taken
+app.get('/api/tickets/:id/actions-taken', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true,
+        ticketNumber: true,
+        requesterId: true,
+      },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Role-Based Access Control:
+    // - IT_STAFF & ADMINISTRATOR: allowed on any ticket
+    // - REQUESTER: allowed ONLY on owned tickets
+    // - Unauthenticated / cross-requester: 401 Unauthorized or 403 Forbidden
+    const user = req.user;
+    if (!user) {
+      // Legacy support for X-Requester-Id header if present
+      const legacyId = req.header('X-Requester-Id');
+      if (legacyId && parseInt(legacyId, 10) === ticket.requesterId) {
+        // Authenticated as ticket owner via legacy header
+      } else {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+    } else if (user.role === 'REQUESTER' && user.id !== ticket.requesterId) {
+      res.status(403).json({ error: 'Access forbidden: You can only view Actions Taken on your own tickets' });
+      return;
+    }
+
+    const actions = await prisma.actionTaken.findMany({
+      where: { ticketId },
+      orderBy: [
+        { actionDateTime: 'asc' },
+        { id: 'asc' },
+      ],
+      include: {
+        performedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    res.status(200).json({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      data: actions.map(formatActionTaken),
+    });
+  } catch (err) {
+    console.error('List actions taken error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

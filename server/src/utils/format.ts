@@ -35,3 +35,30 @@ export const formatTicket = (ticket: any) => {
   };
 };
 
+export const mapActionStatus = (s: string) => {
+  if (s === 'PENDING') return 'Pending';
+  if (s === 'IN_PROGRESS') return 'In Progress';
+  if (s === 'COMPLETED') return 'Completed';
+  if (s === 'CANCELLED') return 'Cancelled';
+  return s;
+};
+
+// Parse input action status string into DB ActionStatus enum value
+export const parseActionStatus = (s: string | null | undefined): string | null => {
+  if (!s || typeof s !== 'string') return null;
+  const cleaned = s.trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(cleaned)) {
+    return cleaned;
+  }
+  return null;
+};
+
+// Format ActionTaken for API response
+export const formatActionTaken = (action: any) => {
+  return {
+    ...action,
+    status: mapActionStatus(action.status),
+  };
+};
+
+

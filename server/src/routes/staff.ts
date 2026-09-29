@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
 import { requireRole } from '../middleware/auth';
 import type { Role } from '../../generated/prisma/client';
-import { formatTicket, parseStatus, parsePriority, mapStatus, mapPriority } from '../utils/format';
+import { formatTicket, parseStatus, parsePriority, mapStatus, mapPriority, formatActionTaken, parseActionStatus } from '../utils/format';
 import { isValidTransition } from '../utils/statusTransitions';
 
 const router = Router();
@@ -361,6 +361,320 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
     });
   } catch (err) {
     console.error('Update status error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ==========================================
+// ACTIONS TAKEN (Sprint 4)
+// ==========================================
+
+// 2.2 POST /api/staff/tickets/:id/actions-taken
+router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    const {
+      description,
+      result,
+      assigneeId,
+      status,
+      isFollowUpRequired,
+      followUpNote,
+      attachmentNotes,
+      actionDateTime,
+    } = req.body;
+
+    // Validate description (1-1000 chars)
+    if (
+      !description ||
+      typeof description !== 'string' ||
+      description.trim().length === 0 ||
+      description.trim().length > 1000
+    ) {
+      res.status(400).json({ error: 'Action description is required (1-1000 characters)' });
+      return;
+    }
+
+    // Validate result (1-1000 chars)
+    if (
+      !result ||
+      typeof result !== 'string' ||
+      result.trim().length === 0 ||
+      result.trim().length > 1000
+    ) {
+      res.status(400).json({ error: 'Action result is required (1-1000 characters)' });
+      return;
+    }
+
+    // Validate assigneeId (defaults to authenticated caller)
+    let finalAssigneeId = user.id;
+    if (assigneeId !== undefined && assigneeId !== null) {
+      const parsedAssigneeId = parseInt(assigneeId, 10);
+      if (isNaN(parsedAssigneeId)) {
+        res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
+        return;
+      }
+      const assigneeUser = await prisma.user.findUnique({
+        where: { id: parsedAssigneeId },
+      });
+      if (
+        !assigneeUser ||
+        !assigneeUser.isActive ||
+        (assigneeUser.role !== 'IT_STAFF' && assigneeUser.role !== 'ADMINISTRATOR')
+      ) {
+        res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
+        return;
+      }
+      finalAssigneeId = assigneeUser.id;
+    }
+
+    // Validate status (defaults to COMPLETED)
+    let finalStatus: any = 'COMPLETED';
+    if (status !== undefined && status !== null) {
+      const parsedStatus = parseActionStatus(status);
+      if (!parsedStatus) {
+        res.status(400).json({ error: 'Invalid action status. Must be Pending, In Progress, Completed, or Cancelled.' });
+        return;
+      }
+      finalStatus = parsedStatus;
+    }
+
+    // Validate follow-up coupling (follow-up note mandatory if follow-up required)
+    const followUpFlag = Boolean(isFollowUpRequired);
+    let finalFollowUpNote: string | null = null;
+    if (followUpFlag) {
+      if (
+        !followUpNote ||
+        typeof followUpNote !== 'string' ||
+        followUpNote.trim().length === 0 ||
+        followUpNote.trim().length > 1000
+      ) {
+        res.status(400).json({ error: 'Follow-up note is required when follow-up is requested.' });
+        return;
+      }
+      finalFollowUpNote = followUpNote.trim();
+    }
+
+    // Validate attachmentNotes (max 500 chars)
+    let finalAttachmentNotes: string | null = null;
+    if (attachmentNotes !== undefined && attachmentNotes !== null) {
+      if (typeof attachmentNotes !== 'string' || attachmentNotes.trim().length > 500) {
+        res.status(400).json({ error: 'Attachment notes must not exceed 500 characters' });
+        return;
+      }
+      finalAttachmentNotes = attachmentNotes.trim() || null;
+    }
+
+    // Validate actionDateTime
+    let finalActionDateTime = new Date();
+    if (actionDateTime) {
+      const parsedDate = new Date(actionDateTime);
+      if (isNaN(parsedDate.getTime())) {
+        res.status(400).json({ error: 'Invalid action date/time format' });
+        return;
+      }
+      finalActionDateTime = parsedDate;
+    }
+
+    const created = await prisma.actionTaken.create({
+      data: {
+        ticketId,
+        actionDateTime: finalActionDateTime,
+        description: description.trim(),
+        result: result.trim(),
+        performedById: user.id, // Strictly auto-attributed to authenticated caller
+        assigneeId: finalAssigneeId,
+        status: finalStatus,
+        isFollowUpRequired: followUpFlag,
+        followUpNote: finalFollowUpNote,
+        attachmentNotes: finalAttachmentNotes,
+      },
+      include: {
+        performedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    res.status(201).json(formatActionTaken(created));
+  } catch (err) {
+    console.error('Create action taken error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2.3 GET /api/staff/tickets/:id/actions-taken/:actionId
+router.get('/tickets/:id/actions-taken/:actionId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    const actionId = parseInt(req.params.actionId, 10);
+    if (isNaN(ticketId) || isNaN(actionId)) {
+      res.status(400).json({ error: 'Invalid ticket id or action id' });
+      return;
+    }
+
+    const action = await prisma.actionTaken.findFirst({
+      where: { id: actionId, ticketId },
+      include: {
+        performedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    if (!action) {
+      res.status(404).json({ error: 'Action Taken not found' });
+      return;
+    }
+
+    res.status(200).json(formatActionTaken(action));
+  } catch (err) {
+    console.error('Get single action taken error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2.4 PATCH /api/staff/tickets/:id/actions-taken/:actionId
+router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    const actionId = parseInt(req.params.actionId, 10);
+    if (isNaN(ticketId) || isNaN(actionId)) {
+      res.status(400).json({ error: 'Invalid ticket id or action id' });
+      return;
+    }
+
+    const existing = await prisma.actionTaken.findFirst({
+      where: { id: actionId, ticketId },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'Action Taken not found' });
+      return;
+    }
+
+    const {
+      description,
+      result,
+      assigneeId,
+      status,
+      isFollowUpRequired,
+      followUpNote,
+      attachmentNotes,
+    } = req.body;
+
+    const dataToUpdate: any = {};
+
+    if (description !== undefined) {
+      if (typeof description !== 'string' || description.trim().length === 0 || description.trim().length > 1000) {
+        res.status(400).json({ error: 'Action description must be between 1 and 1000 characters' });
+        return;
+      }
+      dataToUpdate.description = description.trim();
+    }
+
+    if (result !== undefined) {
+      if (typeof result !== 'string' || result.trim().length === 0 || result.trim().length > 1000) {
+        res.status(400).json({ error: 'Action result must be between 1 and 1000 characters' });
+        return;
+      }
+      dataToUpdate.result = result.trim();
+    }
+
+    if (assigneeId !== undefined) {
+      if (assigneeId === null) {
+        dataToUpdate.assigneeId = null;
+      } else {
+        const parsedAssigneeId = parseInt(assigneeId, 10);
+        if (isNaN(parsedAssigneeId)) {
+          res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
+          return;
+        }
+        const assigneeUser = await prisma.user.findUnique({
+          where: { id: parsedAssigneeId },
+        });
+        if (
+          !assigneeUser ||
+          !assigneeUser.isActive ||
+          (assigneeUser.role !== 'IT_STAFF' && assigneeUser.role !== 'ADMINISTRATOR')
+        ) {
+          res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
+          return;
+        }
+        dataToUpdate.assigneeId = assigneeUser.id;
+      }
+    }
+
+    if (status !== undefined) {
+      const parsedStatus = parseActionStatus(status);
+      if (!parsedStatus) {
+        res.status(400).json({ error: 'Invalid action status. Must be Pending, In Progress, Completed, or Cancelled.' });
+        return;
+      }
+      dataToUpdate.status = parsedStatus;
+    }
+
+    // Follow-up evaluation
+    const effectiveFollowUp = isFollowUpRequired !== undefined ? Boolean(isFollowUpRequired) : existing.isFollowUpRequired;
+    dataToUpdate.isFollowUpRequired = effectiveFollowUp;
+
+    if (effectiveFollowUp) {
+      const newNote = followUpNote !== undefined ? followUpNote : existing.followUpNote;
+      if (!newNote || typeof newNote !== 'string' || newNote.trim().length === 0 || newNote.trim().length > 1000) {
+        res.status(400).json({ error: 'Follow-up note is required when follow-up is requested.' });
+        return;
+      }
+      dataToUpdate.followUpNote = newNote.trim();
+    } else {
+      dataToUpdate.followUpNote = null;
+    }
+
+    if (attachmentNotes !== undefined) {
+      if (attachmentNotes === null) {
+        dataToUpdate.attachmentNotes = null;
+      } else if (typeof attachmentNotes !== 'string' || attachmentNotes.trim().length > 500) {
+        res.status(400).json({ error: 'Attachment notes must not exceed 500 characters' });
+        return;
+      } else {
+        dataToUpdate.attachmentNotes = attachmentNotes.trim() || null;
+      }
+    }
+
+    const updated = await prisma.actionTaken.update({
+      where: { id: actionId },
+      data: dataToUpdate,
+      include: {
+        performedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    res.status(200).json(formatActionTaken(updated));
+  } catch (err) {
+    console.error('Update action taken error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
