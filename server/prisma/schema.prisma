@@ -115,6 +115,7 @@ model Ticket {
   currentStatus              TicketStatus @default(NEW)
   resolutionSummary          String?      @db.Text
   requesterResolutionPending Boolean      @default(false)
+  version                    Int          @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

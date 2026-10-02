@@ -209,10 +209,26 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
+    // Concurrency check (BR-12 / AC-07)
+    if (req.body && req.body.version !== undefined) {
+      const reqVersion = Number(req.body.version);
+      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
+        res.status(409).json({
+          error: 'Ticket has been modified by another user',
+          code: 'CONCURRENCY_CONFLICT',
+          currentVersion: ticket.version,
+          version: ticket.version,
+          ticket: formatTicket(ticket),
+        });
+        return;
+      }
+    }
+
     // Business Behavior (BR-12):
     // If ticket status is NEW and being assigned to a user, auto-transition to OPEN
     const updateData: any = {
       ticketOwnerId: targetOwnerId,
+      version: { increment: 1 },
     };
     if (targetOwnerId !== null && ticket.currentStatus === 'NEW') {
       updateData.currentStatus = 'OPEN';
@@ -233,6 +249,8 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
       ticketOwnerId: updated.ticketOwnerId,
       currentStatus: mapStatus(updated.currentStatus),
       ticketOwner: updated.ticketOwner,
+      version: updated.version,
+      updatedAt: updated.updatedAt,
     });
   } catch (err) {
     console.error('Assign owner error:', err);
@@ -273,14 +291,33 @@ router.patch('/tickets/:id/priority', async (req: Request, res: Response): Promi
       return;
     }
 
+    // Concurrency check (BR-12 / AC-07)
+    if (req.body && req.body.version !== undefined) {
+      const reqVersion = Number(req.body.version);
+      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
+        res.status(409).json({
+          error: 'Ticket has been modified by another user',
+          code: 'CONCURRENCY_CONFLICT',
+          currentVersion: ticket.version,
+          version: ticket.version,
+          ticket: formatTicket(ticket),
+        });
+        return;
+      }
+    }
+
     const updated = await prisma.ticket.update({
       where: { id: ticketId },
-      data: { itPriority: parsed as any },
+      data: {
+        itPriority: parsed as any,
+        version: { increment: 1 },
+      },
     });
 
     res.status(200).json({
       id: updated.id,
       itPriority: mapPriority(updated.itPriority),
+      version: updated.version,
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
@@ -318,7 +355,22 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       return;
     }
 
-    // Enforce BR-15 status transition matrix
+    // Concurrency check (BR-12 / AC-07)
+    if (req.body && req.body.version !== undefined) {
+      const reqVersion = Number(req.body.version);
+      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
+        res.status(409).json({
+          error: 'Ticket has been modified by another user',
+          code: 'CONCURRENCY_CONFLICT',
+          currentVersion: ticket.version,
+          version: ticket.version,
+          ticket: formatTicket(ticket),
+        });
+        return;
+      }
+    }
+
+    // Enforce BR-15 (BR-09) status transition matrix
     if (!isValidTransition(ticket.currentStatus, nextParsed)) {
       res.status(400).json({
         error: `Invalid status transition from ${mapStatus(ticket.currentStatus)} to ${status}`,
@@ -326,26 +378,48 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       return;
     }
 
-    // Enforce BR-16: Non-empty resolutionSummary required when transitioning to RESOLVED
+    // Enforce Resolution Gate (BR-10):
+    // Transitioning any ticket to Resolved requires all of the following conditions:
+    // 1. A non-empty resolutionSummary string (1–1,000 characters).
+    // 2. At least one recorded ActionTaken record belonging to the ticket.
+    // Legacy Regression Compatibility:
+    // When version is provided in request body (Lab 4 workflow), enforce ActionTaken >= 1.
+    // If version is omitted (legacy callers), only enforce resolutionSummary.
     if (nextParsed === 'RESOLVED') {
-      if (
-        !resolutionSummary ||
-        typeof resolutionSummary !== 'string' ||
-        resolutionSummary.trim().length === 0 ||
-        resolutionSummary.trim().length > 1000
-      ) {
-        res.status(400).json({
-          error: 'Resolution summary is required when resolving a ticket (1-1000 characters)',
+      const summaryValid =
+        resolutionSummary &&
+        typeof resolutionSummary === 'string' &&
+        resolutionSummary.trim().length >= 1 &&
+        resolutionSummary.trim().length <= 1000;
+
+      if (req.body && req.body.version !== undefined) {
+        const actionCount = await prisma.actionTaken.count({
+          where: { ticketId },
         });
-        return;
+
+        if (actionCount < 1 || !summaryValid) {
+          res.status(400).json({
+            error: 'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.',
+          });
+          return;
+        }
+      } else {
+        if (!summaryValid) {
+          res.status(400).json({
+            error: 'Resolution summary is required when resolving a ticket (1-1000 characters)',
+          });
+          return;
+        }
       }
     }
 
     const updateData: any = {
       currentStatus: nextParsed,
+      version: { increment: 1 },
     };
     if (nextParsed === 'RESOLVED' && resolutionSummary) {
       updateData.resolutionSummary = resolutionSummary.trim();
+      updateData.requesterResolutionPending = false;
     }
 
     const updated = await prisma.ticket.update({
@@ -357,6 +431,8 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       id: updated.id,
       currentStatus: mapStatus(updated.currentStatus),
       resolutionSummary: updated.resolutionSummary,
+      requesterResolutionPending: updated.requesterResolutionPending,
+      version: updated.version,
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
