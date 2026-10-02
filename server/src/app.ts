@@ -170,20 +170,21 @@ app.get('/api/related-systems', async (req, res) => {
   }
 });
 
+const mapStatus = (s: string) => {
+  if (s === 'NEW') return 'New';
+  if (s === 'OPEN') return 'Open';
+  if (s === 'IN_PROGRESS') return 'In Progress';
+  if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
+  if (s === 'RESOLVED') return 'Resolved';
+  if (s === 'CLOSED') return 'Closed';
+  if (s === 'REOPENED') return 'Reopened';
+  if (s === 'CANCELLED') return 'Cancelled';
+  return s;
+};
+
 // Format ticket for API response
 const formatTicket = (ticket: any) => {
   const mapPriority = (p: string | null) => p ? p.charAt(0) + p.slice(1).toLowerCase() : null;
-  const mapStatus = (s: string) => {
-    if (s === 'NEW') return 'New';
-    if (s === 'OPEN') return 'Open';
-    if (s === 'IN_PROGRESS') return 'In Progress';
-    if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
-    if (s === 'RESOLVED') return 'Resolved';
-    if (s === 'CLOSED') return 'Closed';
-    if (s === 'REOPENED') return 'Reopened';
-    if (s === 'CANCELLED') return 'Cancelled';
-    return s;
-  };
   
   return {
     ...ticket,
@@ -872,8 +873,8 @@ app.post('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req
   }
 });
 
-// RESOLVE INDICATION
-app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, res) => {
+// RESOLVE INDICATION (and alias POST /api/tickets/:id/problem-resolved)
+const handleResolveIndication = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const ticketId = parseInt(req.params.id, 10);
@@ -883,7 +884,7 @@ app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, r
     }
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId }
+      where: { id: ticketId },
     });
 
     if (!ticket) {
@@ -897,32 +898,43 @@ app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, r
       return;
     }
 
-    // Update requesterResolutionPending = true and append system public comment per Spec § 11.5
+    const { comment } = req.body || {};
+    let commentContent = `${user.name} indicated that the problem appears resolved.`;
+    if (comment && typeof comment === 'string' && comment.trim().length > 0) {
+      commentContent += ` Note: ${comment.trim()}`;
+    }
+
+    // Update requesterResolutionPending = true and append system public comment per Spec § 11.5 / BR-11
     // Never modify currentStatus to RESOLVED or CLOSED per BR-05
     await prisma.$transaction([
       prisma.ticket.update({
         where: { id: ticketId },
-        data: { requesterResolutionPending: true }
+        data: { requesterResolutionPending: true },
       }),
       prisma.publicComment.create({
         data: {
           ticketId,
           authorId: user.id,
-          content: `${user.name} indicated that the problem appears resolved.`
-        }
-      })
+          content: commentContent,
+        },
+      }),
     ]);
 
     res.status(200).json({
       id: ticketId,
+      ticketNumber: ticket.ticketNumber,
+      currentStatus: mapStatus(ticket.currentStatus),
       requesterResolutionPending: true,
-      message: 'Problem indicated as resolved'
+      message: 'Problem indicated as resolved. Awaiting IT Staff formal resolution.',
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
-});
+};
+
+app.patch('/api/tickets/:id/resolve-indication', requireRequester, handleResolveIndication);
+app.post('/api/tickets/:id/problem-resolved', requireRequester, handleResolveIndication);
 
 // 2.1 GET /api/tickets/:id/actions-taken
 app.get('/api/tickets/:id/actions-taken', async (req: Request, res: Response): Promise<void> => {

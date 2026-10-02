@@ -49,6 +49,7 @@ interface TicketDetailData {
   ticketOwnerId?: number | null;
   ticketOwner?: { id: number; name: string; email: string; role: string } | null;
   requesterResolutionPending?: boolean;
+  version?: number;
   createdAt: string;
   updatedAt: string;
   category: { id: number; name: string };
@@ -104,6 +105,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   const [resolutionSummaryInput, setResolutionSummaryInput] = useState<string>('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Concurrency conflict banner state (BR-12 / UI Spec 3.5 C)
+  const [concurrencyConflict, setConcurrencyConflict] = useState(false);
+
+  // Staff Resolution Gate modal state (BR-10 / UI Spec 3.5 B)
+  const [showStaffResolutionModal, setShowStaffResolutionModal] = useState(false);
 
   // Communication tabs state
   type TabType = 'COMMENTS' | 'INTERNAL_NOTES' | 'ATTACHMENTS';
@@ -407,11 +414,21 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     setAssigningOwner(true);
     setOwnerError(null);
     try {
+      const payload: any = { ticketOwnerId: ownerId };
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
       const res = await fetch(`/api/staff/tickets/${ticketId}/owner`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketOwnerId: ownerId }),
+        body: JSON.stringify(payload),
       });
+
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        await fetchTicketDetail();
+        return;
+      }
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -431,11 +448,21 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     setUpdatingPriority(true);
     setPriorityError(null);
     try {
+      const payload: any = { itPriority: newPriority };
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
       const res = await fetch(`/api/staff/tickets/${ticketId}/priority`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itPriority: newPriority }),
+        body: JSON.stringify(payload),
       });
+
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        await fetchTicketDetail();
+        return;
+      }
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -467,6 +494,9 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       if (targetStatus === 'Resolved') {
         payload.resolutionSummary = resolutionSummaryInput.trim();
       }
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
 
       const res = await fetch(`/api/staff/tickets/${ticketId}/status`, {
         method: 'PATCH',
@@ -474,11 +504,19 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        setShowStaffResolutionModal(false);
+        await fetchTicketDetail();
+        return;
+      }
+
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || 'Failed to advance ticket status.');
       }
 
+      setShowStaffResolutionModal(false);
       await fetchTicketDetail();
     } catch (err: any) {
       setStatusError(err.message || 'Failed to advance ticket status.');
@@ -841,6 +879,32 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
             </div>
 
             <div className="card-body p-4">
+              {/* Optimistic Concurrency Conflict Banner per ui-spec.md Section 3.5 C */}
+              {concurrencyConflict && (
+                <div
+                  className="alert alert-warning alert-dismissible fade show d-flex align-items-center justify-content-between mb-4 p-3 shadow-sm rounded border-0"
+                  role="alert"
+                  data-testid="concurrency-conflict-banner"
+                  style={{ backgroundColor: '#FFF3CD', color: '#664D03', borderLeft: '5px solid #FFC107' }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                    <div>
+                      <strong>Ticket Modified by Another User</strong>
+                      <div className="small mt-1">
+                        This ticket was updated by another team member while you were editing. The latest information has been loaded to prevent overwriting their work.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={() => setConcurrencyConflict(false)}
+                  />
+                </div>
+              )}
+
               {/* Requester Resolution Pending Banner */}
               {ticket.requesterResolutionPending && (
                 <div
@@ -1010,8 +1074,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                             style={{ minWidth: '180px' }}
                             value={targetStatus}
                             onChange={(e) => {
-                              setTargetStatus(e.target.value);
+                              const val = e.target.value;
+                              setTargetStatus(val);
                               if (statusError) setStatusError(null);
+                              if (val === 'Resolved' && ticket.currentStatus !== 'Resolved') {
+                                setShowStaffResolutionModal(true);
+                              }
                             }}
                             disabled={updatingStatus || permittedNextStatuses.length === 0}
                           >
@@ -1027,7 +1095,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                             type="button"
                             className="btn btn-sm text-white px-3 fw-semibold text-nowrap"
                             style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
-                            onClick={() => handleStatusSubmit()}
+                            onClick={() => {
+                              if (targetStatus === 'Resolved' && ticket.currentStatus !== 'Resolved') {
+                                setShowStaffResolutionModal(true);
+                              }
+                              handleStatusSubmit();
+                            }}
                             disabled={updatingStatus || !targetStatus || targetStatus === ticket.currentStatus}
                           >
                             {updatingStatus ? 'Updating...' : 'Save Status'}
@@ -1036,14 +1109,15 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                       </div>
                     </div>
 
-                    {/* Resolution summary prompt if target status is Resolved */}
-                    {targetStatus === 'Resolved' && targetStatus !== ticket.currentStatus && (
+                    {/* Resolution summary prompt if target status is Resolved and modal is closed */}
+                    {targetStatus === 'Resolved' && targetStatus !== ticket.currentStatus && !showStaffResolutionModal && (
                       <div className="mt-3 p-3 rounded bg-light border">
                         <label htmlFor="resolutionSummaryInput" className="form-label small fw-semibold text-dark mb-1">
                           Resolution Summary <span className="text-danger">*</span>
                         </label>
                         <textarea
                           id="resolutionSummaryInput"
+                          aria-label="Resolution Summary"
                           className="form-control form-control-sm mb-2"
                           rows={2}
                           placeholder="Describe how the problem was resolved (visible to requester)..."
@@ -1057,7 +1131,9 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                       </div>
                     )}
 
-                    {statusError && <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>}
+                    {statusError && !showStaffResolutionModal && (
+                      <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1948,6 +2024,97 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   disabled={resolving}
                 >
                   {resolving ? 'Submitting...' : 'Yes, Problem Resolved'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Resolution Gate Modal Dialog per ui-spec.md Section 3.5 B */}
+      {showStaffResolutionModal && (
+        <div
+          className="modal show d-block"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="resolutionGateModalTitle"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1055 }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content shadow border-0">
+              <div className="modal-header border-bottom py-3 px-4">
+                <h5 className="modal-title fw-bold text-dark" id="resolutionGateModalTitle">
+                  Resolve Ticket {ticket.ticketNumber}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => {
+                    setShowStaffResolutionModal(false);
+                    setTargetStatus(ticket.currentStatus);
+                  }}
+                  disabled={updatingStatus}
+                />
+              </div>
+              <div className="modal-body p-4">
+                {actionsTaken.length === 0 ? (
+                  <div className="alert alert-warning py-3 mb-3 border-0" role="alert" data-testid="resolution-gate-warning">
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                      <strong>Cannot Resolve Ticket</strong>
+                    </div>
+                    <p className="small mb-0 text-dark">
+                      At least one Action Taken must be recorded before this ticket can be resolved. Please close this dialog, add an Action Taken detailing the work performed, and try again.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div>
+                  <label htmlFor="modalResolutionSummaryInput" className="form-label small fw-semibold text-dark mb-1">
+                    Resolution Summary <span className="text-danger">*</span>
+                  </label>
+                  <textarea
+                    id="modalResolutionSummaryInput"
+                    aria-label="Resolution Summary"
+                    className="form-control mb-1"
+                    rows={3}
+                    placeholder="Describe how the problem was resolved (visible to requester)..."
+                    value={resolutionSummaryInput}
+                    onChange={(e) => {
+                      setResolutionSummaryInput(e.target.value);
+                      if (statusError) setStatusError(null);
+                    }}
+                    maxLength={1000}
+                  />
+                  <div className="d-flex justify-content-between text-muted small" style={{ fontSize: '0.75rem' }}>
+                    <span>A clear technical resolution summary is required (1–1,000 characters).</span>
+                    <span>{resolutionSummaryInput.length}/1000 characters</span>
+                  </div>
+                  {statusError && <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>}
+                </div>
+              </div>
+              <div className="modal-footer border-top py-2 px-4">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm px-3"
+                  onClick={() => {
+                    setShowStaffResolutionModal(false);
+                    setTargetStatus(ticket.currentStatus);
+                  }}
+                  disabled={updatingStatus}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm text-white px-3 fw-semibold"
+                  style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                  onClick={() => handleStatusSubmit()}
+                  disabled={actionsTaken.length === 0 || !resolutionSummaryInput.trim() || updatingStatus}
+                >
+                  {updatingStatus ? 'Resolving...' : 'Confirm Resolution'}
                 </button>
               </div>
             </div>
