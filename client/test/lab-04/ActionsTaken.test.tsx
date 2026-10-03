@@ -308,6 +308,43 @@ describe('Lab 4 / UI-07: Actions Taken Component Test Suite', () => {
       expect(screen.getByText(/Action result is required/i)).toBeInTheDocument();
     });
 
+    it('validates action date/time and assignee as mandatory fields', async () => {
+      setupMockFetch();
+
+      render(
+        <TicketDetail
+          currentUser={mockStaffUser}
+          ticketId={101}
+          onBack={() => {}}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /\+ Add Action Taken/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /\+ Add Action Taken/i }));
+
+      // Fill description and result
+      const descInput = screen.getByPlaceholderText(/Describe the work performed/i);
+      fireEvent.change(descInput, { target: { value: 'Inspected power supply' } });
+      const resultInput = screen.getByPlaceholderText(/Describe the result or outcome/i);
+      fireEvent.change(resultInput, { target: { value: 'Working properly' } });
+
+      // Clear Date & Time
+      const dateInput = screen.getByLabelText(/Action Date & Time/i);
+      fireEvent.change(dateInput, { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save Action Taken' }));
+      expect(screen.getByText(/Action date and time is required/i)).toBeInTheDocument();
+
+      // Restore Date & Time, clear Assignee
+      fireEvent.change(dateInput, { target: { value: '2026-09-18T14:30' } });
+      const assigneeSelect = screen.getByRole('combobox', { name: /Assignee/i });
+      fireEvent.change(assigneeSelect, { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save Action Taken' }));
+      expect(screen.getByText(/Assignee is required/i)).toBeInTheDocument();
+    });
+
     it('enforces follow-up note as conditionally required only when Follow-Up Required is checked', async () => {
       setupMockFetch();
 

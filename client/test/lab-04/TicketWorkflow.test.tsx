@@ -190,6 +190,41 @@ describe('Lab 4 / UI-08: Ticket Workflow, Resolution Gate & Concurrency Control'
     expect(options).not.toContain('Reopened');
   });
 
+  it('displays only permitted transitions from Resolved status (Closed, Reopened) for IT Staff', async () => {
+    setupMockFetch({
+      ticket: {
+        ...sampleTicket,
+        currentStatus: 'Resolved',
+        resolutionSummary: 'Issue fixed previously.',
+      },
+    });
+
+    render(
+      <TicketDetail
+        currentUser={mockStaffUser}
+        ticketId={101}
+        onBack={() => {}}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/ticket status/i)).toBeInTheDocument();
+    });
+
+    const statusSelect = screen.getByLabelText(/ticket status/i) as HTMLSelectElement;
+    const options = Array.from(statusSelect.options).map((opt) => opt.value);
+
+    // From Resolved: permitted next statuses are Closed, Reopened
+    expect(options).toContain('Closed');
+    expect(options).toContain('Reopened');
+
+    // Should NOT permit Open, In Progress, Waiting for Requester, Cancelled
+    expect(options).not.toContain('Open');
+    expect(options).not.toContain('In Progress');
+    expect(options).not.toContain('Waiting for Requester');
+    expect(options).not.toContain('Cancelled');
+  });
+
   it('hides operational status controls completely for Requester role', async () => {
     setupMockFetch();
 

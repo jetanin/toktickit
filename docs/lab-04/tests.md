@@ -6,22 +6,28 @@ TokTickIT: Actions Taken, Dashboards, and Final Regression
 
 ```
 server/test/lab-04/
-├── actions-taken.api.test.ts       # Actions Taken CRUD, authorization, assignee validation, follow-up rules
-├── ticket-workflow.api.test.ts     # Resolution gate enforcement, status transition matrix, claiming, OCC 409
-├── requester-dashboard.api.test.ts  # Requester personal metrics calculation, time boundaries, isolation
-└── staff-dashboard.api.test.ts     # IT Staff & Admin operational metrics, priority breakdown, user stats
+├── actions-taken.api.test.ts          # Actions Taken CRUD, authorization, assignee validation, follow-up rules
+├── ticket-workflow.api.test.ts        # Resolution gate enforcement, status transition matrix, claiming, OCC 409
+├── transition-matrix.unit.test.ts     # Pure unit test: transition matrix validator lookup without HTTP/DB
+├── resolution-gate.unit.test.ts       # Pure unit test: Resolution Gate business rule validator
+├── requester-dashboard.api.test.ts     # Requester personal metrics calculation, time boundaries, isolation
+├── staff-dashboard.api.test.ts        # IT Staff & Admin operational metrics, priority breakdown, user stats
+├── staff-dashboard-perf.api.test.ts   # Performance-smoke: Staff dashboard latency under 500+ ticket scale
+└── legacy-ticket-backfill.api.test.ts # Migration/backfill: Pre-Lab 4 tickets display & dashboard counts
 
 client/test/lab-04/
-├── StaffDashboard.test.tsx         # IT Staff KPI cards, drill-down links, urgent tickets list, error retry
-├── RequesterDashboard.test.tsx     # Requester KPI cards, drill-down links, recent tickets list, empty states
-├── AdminDashboard.test.tsx         # Admin operational KPI cards + user account governance counts
-├── ActionsTaken.test.tsx           # Actions Taken table/cards, create/edit modal, follow-up note toggle
-└── TicketWorkflow.test.tsx         # Permitted transitions dropdown, resolution gate blocking modal, OCC alert
+├── StaffDashboard.test.tsx            # IT Staff KPI cards, drill-down links, urgent tickets list, error retry
+├── RequesterDashboard.test.tsx        # Requester KPI cards, drill-down links, recent tickets list, empty states
+├── AdminDashboard.test.tsx            # Admin operational KPI cards + user account governance counts
+├── ActionsTaken.test.tsx              # Actions Taken table/cards, create/edit modal, follow-up note toggle
+└── TicketWorkflow.test.tsx            # Permitted transitions dropdown, resolution gate blocking modal, OCC alert
 
 e2e/lab-04/
-├── actions-taken-flow.spec.ts      # E2E multi-technician Actions Taken creation, editing, and requester view
-├── ticket-resolution.spec.ts       # E2E Resolution Gate enforcement (blocked without action, pass with action)
-└── dashboards.spec.ts              # E2E Requester, Staff, and Admin dashboard cards and drill-down navigation
+├── actions-taken-flow.spec.ts         # E2E multi-technician Actions Taken creation, editing, and requester view
+├── ticket-resolution.spec.ts          # E2E Resolution Gate enforcement (blocked without action, pass with action)
+├── dashboards.spec.ts                 # E2E Requester, Staff, and Admin dashboard cards and drill-down navigation
+├── responsive-viewports.spec.ts       # Automated responsive tests across Mobile (375px), Tablet (768px), Desktop (1280px)
+└── accessibility.spec.ts              # Automated axe-core accessibility scan on Dashboards and Ticket Detail
 ```
 
 _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickIT's codebase from Labs 1–3 established the root `server/test/` and `client/test/` directory structure. Test suites for Lab 4 are authored under `server/test/lab-04/` and `client/test/lab-04/` to match established Vitest and Jest configurations without path fragmentation)._
@@ -32,6 +38,9 @@ _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickI
 
 | Test ID                                 | Type | Requirement / AC    | What It Tests                                                                                   | Expected Result                                                              | Automated Test File                                                    |  Final  |
 | :-------------------------------------- | :--- | :------------------ | :---------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- | :--------------------------------------------------------------------- | :-----: |
+| **Unit & Pure Validator Tests**         |      |                     |                                                                                                 |                                                                              |                                                                        |         |
+| `UNIT-01`                               | Unit | AC-09, BR-09        | Pure transition matrix lookup validator function (`isValidStatusTransition`)                    | Returns true for valid transitions; false for illegal/terminal jumps without HTTP/DB | `server/test/lab-04/transition-matrix.unit.test.ts`                   | Planned |
+| `UNIT-02`                               | Unit | AC-06, AC-07, BR-10 | Pure Resolution Gate validator function (`validateResolutionGate`)                              | Blocks resolution when actions = 0 or summary empty; passes when both valid  | `server/test/lab-04/resolution-gate.unit.test.ts`                     | Planned |
 | **Actions Taken API & Business Rules**  |      |                     |                                                                                                 |                                                                              |                                                                        |         |
 | `API-01`                                | API  | AC-01, BR-01, BR-04 | Create valid Action Taken by IT Staff                                                           | 201 Created; saved with `performedById = caller.id`, status `"Completed"`    | `server/test/lab-04/actions-taken.api.test.ts`                         | Planned |
 | `API-02`                                | API  | AC-01, BR-02        | Different staff members record Actions Taken on same ticket                                     | 201 Created; distinct `performedById` and `assigneeId` persisted             | `server/test/lab-04/actions-taken.api.test.ts`                         | Planned |
@@ -45,7 +54,7 @@ _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickI
 | `API-10`                                | API  | AC-01, BR-08        | Update Action Taken details and status (`PATCH /api/staff/tickets/:id/actions-taken/:actionId`) | 200 OK; updated attributes reflected in database                             | `server/test/lab-04/actions-taken.api.test.ts`                         | Planned |
 | `API-10b`                               | API  | AC-01, BR-01        | Retrieve single Action Taken item (`GET /api/staff/tickets/:id/actions-taken/:actionId`)        | 200 OK; single action object returned matching requested ID                  | `server/test/lab-04/actions-taken.api.test.ts`                         | Planned |
 | **Ticket Workflow & Resolution Gate**   |      |                     |                                                                                                 |                                                                              |                                                                        |         |
-| `API-11`                                | API  | AC-06, BR-10        | Attempt to resolve ticket with 0 Actions Taken (Lab 4 client with version supplied)             | 400 Bad Request; blocked by Resolution Gate rule                             | `server/test/lab-04/ticket-workflow.api.test.ts`                       | Planned |
+| `API-11`                                | API  | AC-06, BR-10        | Attempt to resolve ticket with 0 Actions Taken (universally enforced for all requests)          | 400 Bad Request; blocked by Resolution Gate rule                             | `server/test/lab-04/ticket-workflow.api.test.ts`                       | Planned |
 | `API-12`                                | API  | AC-06, BR-10        | Attempt to resolve ticket with empty `resolutionSummary`                                        | 400 Bad Request; resolution summary required                                 | `server/test/lab-04/ticket-workflow.api.test.ts`                       | Planned |
 | `API-13`                                | API  | AC-07, BR-10        | Resolve ticket with valid summary and >= 1 Action Taken                                         | 200 OK; status updated to `"Resolved"`, `requesterResolutionPending` cleared | `server/test/lab-04/ticket-workflow.api.test.ts`                       | Planned |
 | `API-14`                                | API  | AC-08, BR-11        | Requester indicates problem resolved (`PATCH /api/tickets/:id/resolve-indication`)              | 200 OK; `requesterResolutionPending = true`, status unchanged                | `server/test/lab-04/ticket-workflow.api.test.ts`                       | Planned |
@@ -65,6 +74,7 @@ _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickI
 | `API-25`                                | API  | AC-12, BR-15        | Administrator dashboard operational metrics                                                     | Inherits all IT Staff metrics accurately                                     | `server/test/lab-04/staff-dashboard.api.test.ts`                       | Planned |
 | `API-26`                                | API  | AC-12, FR-14, BR-15 | Administrator dashboard user account statistics                                                 | Accurate counts for active requesters, staff, and admins                     | `server/test/lab-04/staff-dashboard.api.test.ts`                       | Planned |
 | `API-26b`                               | API  | AC-12, BR-15        | Non-admin user attempts access to `/api/admin/dashboard`                                        | 403 Forbidden; access restricted strictly to Administrator role               | `server/test/lab-04/staff-dashboard.api.test.ts`                       | Planned |
+| `PERF-01`                               | Perf | AC-11, BR-14        | Staff Dashboard response latency smoke test under realistic dataset (500+ tickets)               | 200 OK returned within < 500ms; all metric aggregations accurate under scale  | `server/test/lab-04/staff-dashboard-perf.api.test.ts`                 | Planned |
 | **Client UI Component Tests**           |      |                     |                                                                                                 |                                                                              |                                                                        |         |
 | `UI-01`                                 | UI   | AC-11, AC-13        | IT Staff Dashboard renders metric cards and drill-down links                                    | Metric cards render correct counts; clicks invoke queue filter               | `client/test/lab-04/StaffDashboard.test.tsx`                           | Planned |
 | `UI-02`                                 | UI   | AC-11               | IT Staff Dashboard renders urgent tickets table and empty state                                 | List displays urgent tickets; shows empty banner when count is 0             | `client/test/lab-04/StaffDashboard.test.tsx`                           | Planned |
@@ -74,14 +84,17 @@ _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickI
 | `UI-06`                                 | UI   | AC-06, AC-07        | Ticket Detail Resolution Gate modal blocks resolve when Actions Taken = 0                       | Displays warning alert; enables confirm button only when actions exist       | `client/test/lab-04/TicketWorkflow.test.tsx`                           | Planned |
 | `UI-07`                                 | UI   | AC-14               | Optimistic concurrency conflict alert displays when 409 received                                | Shows non-intrusive warning banner and refreshes ticket data                 | `client/test/lab-04/TicketWorkflow.test.tsx`                           | Planned |
 | `UI-08`                                 | UI   | AC-12               | Admin Dashboard renders operational queue KPIs and user governance account counts               | Displays active requester, staff, and admin counts alongside queue metrics   | `client/test/lab-04/AdminDashboard.test.tsx`                           | Planned |
-| **End-to-End Playwright Tests**         |      |                     |                                                                                                 |                                                                              |                                                                        |         |
+| **End-to-End & Cross-Functional Tests** |      |                     |                                                                                                 |                                                                              |                                                                        |         |
 | `E2E-01`                                | E2E  | AC-01..05           | Full Actions Taken lifecycle across multiple staff and requester view                           | Staff A adds action; Staff B adds follow-up; Requester views                 | `e2e/lab-04/actions-taken-flow.spec.ts`                                | Planned |
 | `E2E-02`                                | E2E  | AC-06..09           | Complete Resolution Gate and lifecycle flow from New to Closed                                  | Blocked at 0 actions; resolves after action added; closes cleanly            | `e2e/lab-04/ticket-resolution.spec.ts`                                 | Planned |
 | `E2E-03`                                | E2E  | AC-10..13           | Requester, IT Staff, and Admin dashboard navigation and drill-down                              | Cards show correct numbers; clicking card filters target table               | `e2e/lab-04/dashboards.spec.ts`                                        | Planned |
+| `RESP-01`                               | E2E  | AC-13, UI-Spec Sec 4| Responsive reflow of Actions Taken and Dashboards across Mobile (375px), Tablet (768px), Desktop (1280px) | Zero horizontal overflow; touch targets ≥44px; tables reflow to cards on mobile | `e2e/lab-04/responsive-viewports.spec.ts`                              | Planned |
+| `A11Y-01`                               | A11y | UI-Spec Sec 4       | Automated axe-core accessibility audit on Dashboards and Ticket Detail with Actions Taken modal | Zero critical or serious WCAG 2.1 AA violations; labels, contrast, and focus pass | `e2e/lab-04/accessibility.spec.ts`                                    | Planned |
 | **Regression & Hardening Verification** |      |                     |                                                                                                 |                                                                              |                                                                        |         |
 | `REGR-01`                               | Regr | AC-15               | Full Lab 1, 2, and 3 server suite execution                                                     | All baseline server regression tests pass 100% green                         | `server/test/lab-01/*`, `server/test/lab-02/*`, `server/test/lab-03/*` |  Pass   |
 | `REGR-02`                               | Regr | AC-15               | Full Lab 1, 2, and 3 client suite execution                                                     | All baseline client regression tests pass 100% green                         | `client/test/lab-01/*`, `client/test/lab-02/*`, `client/test/lab-03/*` |  Pass   |
 | `REGR-03`                               | Regr | AC-15               | Full Lab 3 E2E test suites execution                                                            | All baseline Lab 3 E2E suites pass 100% green                                | `e2e/lab-03/*`                                                         |  Pass   |
+| `MIGR-01`                               | Regr | AC-10, AC-11, AC-15 | Legacy pre-Lab 4 ticket backfill compatibility (0 actions taken, default version=1)             | Ticket detail displays cleanly; dashboards correctly aggregate legacy tickets| `server/test/lab-04/legacy-ticket-backfill.api.test.ts`              | Planned |
 
 ---
 
@@ -94,13 +107,13 @@ _(Note: While Handout §9.1 and §12 reference plural `tests/` folders, TokTickI
 | **AC-03** (Inactive Assignee Rejection) | `API-05`, `API-06`                                         | Inactive staff and requester assignees rejected with 400                          |
 | **AC-04** (Requester Read-Only)         | `API-07`, `API-08`, `UI-05`, `E2E-01`                      | Requester sees actions on owned ticket; write actions blocked                     |
 | **AC-05** (Cross-Requester Isolation)   | `API-09`                                                   | Accessing another requester's ticket actions returns 404/403                      |
-| **AC-06** (Resolution Gate - Blocked)   | `API-11`, `API-12`, `UI-06`, `E2E-02`                      | Transition to Resolved fails if Actions Taken count = 0 or summary empty          |
-| **AC-07** (Resolution Gate - Success)   | `API-13`, `UI-06`, `E2E-02`                                | Transition to Resolved succeeds with action and summary                           |
+| **AC-06** (Resolution Gate - Blocked)   | `API-11`, `API-12`, `UNIT-02`, `UI-06`, `E2E-02`                      | Transition to Resolved fails if Actions Taken count = 0 or summary empty          |
+| **AC-07** (Resolution Gate - Success)   | `API-13`, `UNIT-02`, `UI-06`, `E2E-02`                                | Transition to Resolved succeeds with action and summary                           |
 | **AC-08** (Advisory Resolution)         | `API-14`, `E2E-02`                                         | Requester resolution indicator sets flag without changing status                  |
-| **AC-09** (Status Closure & Reopen)     | `API-15`, `API-16`, `API-17`, `API-17b`, `E2E-02`          | Permitted transitions Closed, Reopened, Claiming auto-open, and illegal transition rejection per BR-09 |
-| **AC-10** (Requester Dashboard)         | `API-19`, `API-20`, `API-21`, `UI-03`, `E2E-03`            | Personal metrics and recent tickets isolated to caller                            |
-| **AC-11** (IT Staff Dashboard)          | `API-22`, `API-23`, `API-24`, `UI-01`, `UI-02`, `E2E-03`   | Operational metrics, status/priority breakdown, urgent list                       |
-| **AC-12** (Administrator Dashboard)     | `API-25`, `API-26`, `API-26b`, `UI-08`, `E2E-03`           | Combined operational queue, user governance account statistics, and RBAC restriction |
-| **AC-13** (Dashboard Drill-Down)        | `UI-01`, `UI-03`, `E2E-03`                                 | Clicking card navigates to queue pre-filtered by metric query                     |
+| **AC-09** (Status Closure & Reopen)     | `API-15`, `API-16`, `API-17`, `API-17b`, `UNIT-01`, `E2E-02` | Permitted transitions Closed, Reopened, Claiming auto-open, matrix unit validator, and illegal transition rejection per BR-09 |
+| **AC-10** (Requester Dashboard)         | `API-19`, `API-20`, `API-21`, `MIGR-01`, `UI-03`, `RESP-01`, `A11Y-01`, `E2E-03` | Personal metrics, legacy backfill counts, responsive viewports, and accessibility |
+| **AC-11** (IT Staff Dashboard)          | `API-22`, `API-23`, `API-24`, `PERF-01`, `MIGR-01`, `UI-01`, `UI-02`, `RESP-01`, `A11Y-01`, `E2E-03` | Operational metrics, latency smoke under scale (<500ms), priority breakdown, legacy counts |
+| **AC-12** (Administrator Dashboard)     | `API-25`, `API-26`, `API-26b`, `UI-08`, `RESP-01`, `A11Y-01`, `E2E-03` | Combined operational queue, user governance account statistics, responsive and a11y |
+| **AC-13** (Dashboard Drill-Down)        | `UI-01`, `UI-03`, `RESP-01`, `E2E-03`                       | Clicking card navigates to queue pre-filtered by metric query across viewports     |
 | **AC-14** (Optimistic Concurrency)      | `API-18`, `API-27`, `UI-07`                                | Stale update returns 409 Conflict; UI refreshes gracefully                        |
-| **AC-15** (Regression Integrity)        | `REGR-01`, `REGR-02`, `REGR-03`                            | 100% passing results across all baseline legacy test suites                       |
+| **AC-15** (Regression Integrity)        | `REGR-01`, `REGR-02`, `REGR-03`, `MIGR-01`                 | 100% passing results across legacy test suites and pre-Lab 4 backfilled ticket data |
