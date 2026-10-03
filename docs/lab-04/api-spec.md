@@ -15,12 +15,14 @@ TokTickIT: Actions Taken, Dashboards, and Workflow Hardening
 
 ### 1.2 Optimistic Concurrency Control (OCC) Protocol
 
-- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) accept an optional `version: number` attribute in the request body (or optional header `If-Match` / `updatedAt: string`).
-- **When `version` is supplied (Lab 4 Workflow)**:
+- All ticket mutation endpoints (`PATCH /api/staff/tickets/:id/*`) require `version: number` in the request body for standard Lab 4 interactive operations (or header `If-Match` / `updatedAt: string`).
+- **When `version` is supplied (Lab 4 Interactive Workflow)**:
   - If `ticket.version !== req.body.version`, the mutation is aborted and the server returns `HTTP 409 Conflict`.
   - When the mutation succeeds, `ticket.version` is incremented by `1`.
-- **When `version` is omitted (Legacy / Lab 3 Requests)**:
-  - Legacy callers that omit `version` (such as Lab 1–3 regression test suites) are processed without version conflict checks, ensuring zero regression breakages. If an explicit `If-Match` header is supplied, that conditional token is evaluated.
+- **When `version` is omitted (Programmatic / Legacy Requests)**:
+  - When `version` is omitted, the OCC version-match check is skipped. This is safe for isolated programmatic mutations where concurrent multi-user race conditions do not exist; `ticket.version` is still incremented by `1` on write, so any active OCC client will detect that a concurrent update occurred and be blocked from overwriting state.
+  - **Zero Bypass of Business Rules**: Omitting `version` does **NOT** bypass any business rule or the Resolution Gate. Any request attempting to transition status to `Resolved` must strictly have ≥1 Action Taken and a non-empty `resolutionSummary`, regardless of whether `version` is provided.
+  - Legacy Lab 3 test suites that currently omit `version` will be updated in a future regression alignment Issue to send the appropriate `version` attribute.
 - Safe Error Body for Concurrency Conflicts:
 
 ```json
@@ -378,12 +380,12 @@ Advance ticket status conforming to BR-09 status transition matrix, enforcing th
 
 - **Validation & Business Logic**:
   - `status`: Required Title Case string per Section 1.4 (`"Resolved"`, `"Closed"`, etc.). Must be a valid next status from current status per BR-09.
-  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`. Legacy callers omitting `version` bypass OCC checks.
+  - Concurrency Check: If `body.version` is supplied and does not match database `version`, returns `409 Conflict`. For version-less requests, OCC checking is skipped while `ticket.version` increments on write.
   - **Resolution Gate**: If status resolves to `"Resolved"`:
     - `resolutionSummary`: Required non-empty string, 1–1,000 characters.
-    - **Action Taken Check**: When `version` is provided (Lab 4 workflow), ticket must have count of `ActionTaken` >= 1. Otherwise returns `HTTP 400 Bad Request` with:
+    - **Action Taken Check**: Unconditionally enforced for all requests. The target ticket must have a count of `ActionTaken` >= 1. If count is 0 or summary is empty/whitespace, returns `HTTP 400 Bad Request` with:
       `{ "error": "Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required." }`
-    - **Regression Compatibility**: Legacy Lab 3 callers that omit `version` enforce `resolutionSummary` validation without blocking on zero Actions Taken, preserving 100% green status on Lab 1–3 regression suites.
+    - **Universal Enforcement & Legacy Test Alignment**: The Resolution Gate applies uniformly to every caller attempting to resolve a ticket, regardless of whether `version` is included. Direct API calls bypassing the UI cannot avoid this requirement. Legacy Lab 3 integration tests that resolve tickets without Actions Taken will be updated in a future regression alignment Issue to pre-seed an Action Taken and provide `version`.
 - **Response** (`200 OK`):
 
 ```json
@@ -506,4 +508,4 @@ All existing endpoints from earlier labs remain active. Endpoints listed below a
 
 - `PATCH /api/tickets/:id/resolve-indication` (and alias `POST /api/tickets/:id/problem-resolved`): Sets `requesterResolutionPending = true` and appends an automated Public Comment per BR-11/AC-08. Status remains unchanged (advisory only — see Section 4.4).
 - `PATCH /api/staff/tickets/:id/owner`: Now checks `version` when supplied for OCC protection; preserves self-claim (`{}`) and unassign (`null`) behavior per Section 4.2.
-- `PATCH /api/staff/tickets/:id/status`: Enforces Resolution Gate when `version` is supplied; preserves legacy single-summary resolution when `version` is omitted per Section 4.1.
+- `PATCH /api/staff/tickets/:id/status`: Enforces Resolution Gate (≥1 Action Taken and non-empty resolution summary) unconditionally for all callers; enforces OCC when `version` is supplied per Section 4.1.

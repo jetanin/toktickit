@@ -382,9 +382,7 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
     // Transitioning any ticket to Resolved requires all of the following conditions:
     // 1. A non-empty resolutionSummary string (1–1,000 characters).
     // 2. At least one recorded ActionTaken record belonging to the ticket.
-    // Legacy Regression Compatibility:
-    // When version is provided in request body (Lab 4 workflow), enforce ActionTaken >= 1.
-    // If version is omitted (legacy callers), only enforce resolutionSummary.
+    // Universally enforced for all callers, regardless of whether version is provided.
     if (nextParsed === 'RESOLVED') {
       const summaryValid =
         resolutionSummary &&
@@ -392,24 +390,15 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
         resolutionSummary.trim().length >= 1 &&
         resolutionSummary.trim().length <= 1000;
 
-      if (req.body && req.body.version !== undefined) {
-        const actionCount = await prisma.actionTaken.count({
-          where: { ticketId },
-        });
+      const actionCount = await prisma.actionTaken.count({
+        where: { ticketId },
+      });
 
-        if (actionCount < 1 || !summaryValid) {
-          res.status(400).json({
-            error: 'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.',
-          });
-          return;
-        }
-      } else {
-        if (!summaryValid) {
-          res.status(400).json({
-            error: 'Resolution summary is required when resolving a ticket (1-1000 characters)',
-          });
-          return;
-        }
+      if (actionCount < 1 || !summaryValid) {
+        res.status(400).json({
+          error: 'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.',
+        });
+        return;
       }
     }
 

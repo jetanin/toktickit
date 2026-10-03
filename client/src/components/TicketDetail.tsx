@@ -311,6 +311,16 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   const handleSaveAction = async () => {
     setActionFormError(null);
 
+    if (!actionDateTime) {
+      setActionFormError('Action date and time is required.');
+      return;
+    }
+
+    if (!actionAssigneeId) {
+      setActionFormError('Assignee is required.');
+      return;
+    }
+
     if (!actionDescription.trim()) {
       setActionFormError('Action description is required (1-1000 characters).');
       return;

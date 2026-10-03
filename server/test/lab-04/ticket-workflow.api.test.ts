@@ -235,6 +235,36 @@ describe('Lab 4: Ticket Workflow, Resolution Gate & Concurrency Control Suite', 
       );
     });
 
+    it('rejects transitioning to Resolved when ticket has 0 Actions Taken even if version is omitted (universal enforcement)', async () => {
+      const ticket = await prisma.ticket.create({
+        data: {
+          ticketNumber: `TKT-GATE-3B-${Date.now()}`,
+          summary: 'Testing resolution gate without actions taken and without version',
+          description: 'Zero actions taken without version test',
+          categoryId: catId,
+          relatedSystemId: sysId,
+          requesterId: requester1.id,
+          ticketOwnerId: staff1.id,
+          requestedPriority: 'MEDIUM',
+          currentStatus: 'IN_PROGRESS',
+          version: 1,
+        },
+      });
+
+      const res = await request(app)
+        .patch(`/api/staff/tickets/${ticket.id}/status`)
+        .set('Authorization', `Bearer ${tokenStaff1}`)
+        .send({
+          status: 'Resolved',
+          resolutionSummary: 'Attempted resolution without version token.',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe(
+        'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.'
+      );
+    });
+
     it('rejects transitioning to Resolved when resolution summary is missing even with Actions Taken', async () => {
       const ticket = await prisma.ticket.create({
         data: {
