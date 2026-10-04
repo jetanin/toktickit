@@ -491,4 +491,81 @@ describe('Lab 4 / UI-07: Actions Taken Component Test Suite', () => {
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     });
   });
+
+  describe('5. Double Submission Prevention', () => {
+    it('prevents duplicate Action Taken records when save button is clicked multiple times rapidly', async () => {
+      let postCount = 0;
+      global.fetch = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || 'GET';
+
+        if (url.includes('/api/tickets/101/actions-taken') && method === 'GET') {
+          return Promise.resolve({ ok: true, json: async () => sampleActionsTaken });
+        }
+        if (url.includes('/api/staff/assignees') && method === 'GET') {
+          return Promise.resolve({ ok: true, json: async () => sampleAssignees });
+        }
+        if (url.includes('/api/tickets/101') && method === 'GET') {
+          return Promise.resolve({ ok: true, json: async () => sampleTicket });
+        }
+        if (url.includes('/api/staff/tickets/101/actions-taken') && method === 'POST') {
+          postCount++;
+          return new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  ok: true,
+                  json: async () => ({
+                    id: 99,
+                    ticketId: 101,
+                    actionDateTime: new Date().toISOString(),
+                    description: 'Double click action test',
+                    result: 'Double click result test',
+                    performedById: 2,
+                    assigneeId: 2,
+                    status: 'Completed',
+                    isFollowUpRequired: false,
+                    followUpNote: null,
+                    attachmentNotes: null,
+                  }),
+                }),
+              50
+            )
+          );
+        }
+        return Promise.reject(new Error(`Unhandled: ${method} ${url}`));
+      });
+
+      render(
+        <TicketDetail
+          currentUser={mockStaffUser}
+          ticketId={101}
+          onBack={() => {}}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /\+ Add Action Taken/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /\+ Add Action Taken/i }));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Testing double click prevention' } });
+      fireEvent.change(screen.getByLabelText(/result/i), { target: { value: 'Testing result' } });
+      fireEvent.change(screen.getByLabelText(/assignee/i), { target: { value: '2' } });
+
+      const saveBtn = screen.getByRole('button', { name: 'Save Action Taken' });
+      // Rapid double clicks
+      fireEvent.click(saveBtn);
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      // Exactly 1 POST request dispatched
+      expect(postCount).toBe(1);
+    });
+  });
 });

@@ -7,7 +7,13 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:server && npm run test:client && npm run test:e2e",
+    "test:server": "npm --prefix server test -- --run",
+    "test:client": "npm --prefix client test -- --run",
+    "test:e2e": "npx playwright test e2e/lab-03 e2e/lab-04",
+    "test:e2e:lab3": "npx playwright test e2e/lab-03",
+    "test:e2e:lab4": "npx playwright test e2e/lab-04",
+    "test:lab4": "npm --prefix server test -- test/lab-04 --run && npm --prefix client test -- --run && npx playwright test e2e/lab-04"
   },
   "repository": {
     "type": "git",

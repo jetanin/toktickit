@@ -80,8 +80,8 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
         const data = await res.json();
         setCategories(data);
       }
-    } catch (err) {
-      console.error('Failed to load categories:', err);
+    } catch (_err) {
+      // Handled cleanly; categories filter will remain empty
     }
   };
 
@@ -130,7 +130,6 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
         }
       );
     } catch (err: any) {
-      console.error(err);
       setError(err.message || 'Unable to load tickets queue.');
     } finally {
       setLoading(false);

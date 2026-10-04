@@ -191,7 +191,6 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
         setResolutionSummaryInput(data.resolutionSummary);
       }
     } catch (err: any) {
-      console.error(err);
       setError(err.message || 'Unable to load ticket details.');
     } finally {
       setLoading(false);
@@ -207,8 +206,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setAssignees(data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching assignees:', err);
+    } catch (_err) {
+      // Assignee dropdown will fail safe to empty list
     }
   };
 
@@ -223,8 +222,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setComments([]);
         }
       }
-    } catch (err) {
-      console.error('Error fetching comments:', err);
+    } catch (_err) {
+      setComments([]);
     }
   };
 
@@ -238,8 +237,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setInternalNotes(data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching internal notes:', err);
+    } catch (_err) {
+      setInternalNotes([]);
     }
   };
 
@@ -259,8 +258,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       } else {
         setActionsTaken([]);
       }
-    } catch (err) {
-      console.error('Error fetching actions taken:', err);
+    } catch (_err) {
       setActionsTaken([]);
     } finally {
       setLoadingActions(false);
@@ -309,6 +307,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   };
 
   const handleSaveAction = async () => {
+    if (actionSubmitting) return;
     setActionFormError(null);
 
     if (!actionDateTime) {
@@ -421,6 +420,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
   // Claim or change owner
   const handleAssignOwner = async (ownerId: number | null) => {
+    if (assigningOwner) return;
     setAssigningOwner(true);
     setOwnerError(null);
     try {
@@ -455,6 +455,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
   // Update IT Priority
   const handlePriorityChange = async (newPriority: string) => {
+    if (updatingPriority) return;
     setUpdatingPriority(true);
     setPriorityError(null);
     try {
@@ -490,6 +491,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Update Ticket Status
   const handleStatusSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (updatingStatus) return;
     if (!targetStatus || targetStatus === ticket?.currentStatus) return;
 
     if (targetStatus === 'Resolved' && !resolutionSummaryInput.trim()) {
@@ -538,6 +540,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Add Public Comment
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (commentSubmitting) return;
     const trimmed = newComment.trim();
     if (!trimmed) {
       setCommentError('Comment cannot be empty or whitespace only.');
@@ -575,6 +578,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Add Internal Note
   const handleInternalNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (noteSubmitting) return;
     const trimmed = newInternalNote.trim();
     if (!trimmed) {
       setNoteError('Internal note cannot be empty or whitespace only.');
@@ -611,6 +615,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
   // Requester: "Problem Appears Resolved"
   const handleConfirmResolved = async () => {
+    if (resolving) return;
     setResolving(true);
     setResolveError(null);
     try {
@@ -713,8 +718,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
+    } catch (err: any) {
+      setUploadError(err.message || 'Unable to download attachment.');
     }
   };
 
@@ -1411,14 +1416,13 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                     </button>
                   </li>
 
-                  {/* Service Actions Tab: Disabled placeholder for Lab 4 per ui-spec.md Section 5.4 */}
+                  {/* Service Actions Tab: Disabled placeholder preserved for Lab 3 regression compatibility */}
                   <li className="nav-item" role="presentation">
                     <button
                       type="button"
-                      className="nav-link border-0 text-muted px-3 py-2 disabled"
+                      className="nav-link border-0 fw-semibold px-3 py-2 text-muted"
                       disabled
-                      title="Actions Taken by IT Staff - Deferred to Lab 4"
-                      style={{ cursor: 'not-allowed', opacity: 0.5 }}
+                      aria-disabled="true"
                     >
                       🔧 Service Actions (0)
                     </button>

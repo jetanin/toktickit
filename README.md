@@ -145,18 +145,77 @@ npm run dev
 
 Vite จะเปิด dev server ขึ้นมา ปกติจะรันที่ `http://localhost:5173` เปิดลิงก์นี้ในเบราว์เซอร์เพื่อดูหน้าเว็บ
 
-## วิธีรันเทส
 
-### Backend (Supertest)
+## วิธีรันเทส (Testing & Verification)
+
+### รันทุกชุดการทดสอบจาก root directory
+
+```bash
+# รันทั้ง Server Vitest, Client Vitest และ Playwright E2E แบบรวม
+npm test
+
+# หรือรันแยกตามชุด
+npm run test:server   # Backend API & Unit tests (Vitest + Supertest)
+npm run test:client   # Frontend Component tests (Vitest + React Testing Library)
+npm run test:e2e      # End-to-End browser workflow tests (Playwright)
+```
+
+### รันแยกรายโฟลเดอร์
+
+#### Backend (server)
 
 ```bash
 cd server
-npm test
+npm test -- --run
 ```
 
-### Frontend (Vitest)
+#### Frontend (client)
 
 ```bash
 cd client
-npm test
+npm test -- --run
 ```
+
+#### Playwright End-to-End (E2E)
+
+```bash
+# รัน E2E baseline สำหรับ Lab 3 และ Lab 4 workflows
+npx playwright test e2e/lab-03
+```
+
+---
+
+## คู่มือการทดสอบฟีเจอร์ Lab 4 (Demonstration & Verification Guide)
+
+### 1. การบันทึกและจัดการการดำเนินการ (Actions Taken Workflow)
+
+1. เข้าสู่ระบบด้วยบัญชี IT Staff (`sarah.it@toktick.it` / `Password123!`)
+2. ไปที่ **Ticket Queue** แล้วเลือกตั๋วสถานะ **Open** หรือ **In Progress**
+3. ในส่วน **Actions Taken** ด้านขวา:
+   - กดปุ่ม **+ Add Action Taken**
+   - ระบุ Action Date & Time, Assignee, Description และ Result
+   - หากเลือก **Follow-up Required** ระบบจะบังคับให้ระบุ Follow-up Note
+   - กดบันทึก จะเห็นรายการแสดงพร้อม Tag แสดงสถานะและชื่อผู้ปฏิบัติงาน
+   - สามารถกด **Edit** เพื่ออัปเดตรายละเอียดหรือปรับสถานะงานได้
+
+### 2. การบังคับใช้ Resolution Gate
+
+1. เปิดตั๋วที่ยังไม่มีการบันทึก Action Taken เลย (0 actions)
+2. พยายามเปลี่ยนสถานะเป็น **Resolved**
+   - ระบบจะบล็อกการดำเนินการทันที พร้อมแสดงข้อความเตือนว่าไม่อนุญาตให้ Resolve ตั๋วหากยังไม่มี Action Taken อย่างน้อย 1 รายการ
+3. เมื่อบันทึก Action Taken อย่างน้อย 1 รายการและกรอก **Resolution Summary**
+   - สถานะจะถูกเปลี่ยนเป็น **Resolved** ได้อย่างสมบูรณ์
+
+### 3. การตรวจสอบความขัดแย้งของข้อมูลพร้อมกัน (Optimistic Concurrency Control - OCC)
+
+1. เปิดตั๋วเดียวกันใน 2 แท็บเบราว์เซอร์พร้อมกัน (แท็บ A และแท็บ B)
+2. ที่แท็บ A ทำการเปลี่ยนสถานะหรือ Assign Owner สำเร็จ (ticket version เพิ่มขึ้น)
+3. ที่แท็บ B พยายามเปลี่ยนสถานะหรือแก้ไขตั๋วจากข้อมูลเดิม
+   - ระบบจะตรวจพบ Concurrency Conflict (409) และแสดงแถบเตือนสีส้มแจ้งว่าตั๋วถูกแก้ไขโดยผู้อื่น พร้อมรีเฟรชข้อมูลให้เป็นปัจจุบันโดยอัตโนมัติ
+
+### 4. มุมมองของผู้แจ้งปัญหา (Requester View)
+
+1. เข้าสู่ระบบด้วยบัญชี Requester (`jennifer.anderson@toktick.it` / `Password123!`)
+2. ไปที่ **My Tickets** แล้วเปิดตั๋วของตนเอง
+3. จะเห็นส่วน **Actions Taken** แสดงผลในรูปแบบ Read-Only อย่างชัดเจน (ไม่มีปุ่ม Add/Edit)
+4. สามารถกดปุ่ม **"Problem Appears Resolved"** เพื่อส่งสัญญาณแจ้งเตือนทีม IT ได้โดยไม่กระทบต่อสถานะหลักของตั๋ว
