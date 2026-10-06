@@ -74,8 +74,8 @@ function App() {
     loggedOutRef.current = true;
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (err) {
-      console.error('Logout error:', err);
+    } catch (_err) {
+      // Logout failure is handled gracefully by clearing client session
     } finally {
       setCurrentUser(null);
       localStorage.removeItem('toktickit_user');

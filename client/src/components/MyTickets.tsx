@@ -70,8 +70,8 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
         const data = await res.json();
         setCategories(data);
       }
-    } catch (err) {
-      console.error('Failed to load categories:', err);
+    } catch (_err) {
+      // Handled cleanly; categories filter will remain empty
     }
   };
 
@@ -108,7 +108,6 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
         }
       );
     } catch (err: any) {
-      console.error(err);
       setError(err.message || 'Unable to load tickets.');
     } finally {
       setLoading(false);

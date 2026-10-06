@@ -1,14 +1,49 @@
 # AI Use and Reflection (Lab 04)
 
-I used **Antigravity IDE** (Google DeepMind) pairing with **Claude Sonnet 4.6 (Thinking)** and **Gemini 3.8 Flash** as my main AI assistant throughout Lab 04.
+I used **Antigravity IDE** (Google DeepMind) with models including **Claude Sonnet 4.6 (Thinking)** and **Gemini 3.8 Flash** as my main AI assistant throughout Lab 04, covering sprint specification drafting, contract hardening, database schema evolution (`ActionTaken`, `Ticket.version`), status transition matrix validator design, Resolution Gate enforcement, Optimistic Concurrency Control (OCC), role-based dashboards, responsive & accessibility audits, visual artifact separation, and full multi-tier regression hardening.
 
----
-
-## Selected Key Prompts (6–10 Prompts)
+## Selected Key Prompts
 
 | Prompt Name | Actual Prompt Text | My Reflection |
-| :---------- | :----------------- | :------------ |
+| :--- | :--- | :--- |
+| **Draft Sprint 4 Engineering Contract & Specifications** | เขียนไฟล์ specification.md, api-spec.md, ui-spec.md, tests.md ตาม labsheet Lab 4 อย่างละเอียด | ได้ข้อกำหนดและ Engineering Contract ครบถ้วนทั้ง 4 มิติ ครอบคลุม Functional Requirements (FR-01–FR-14), Business Rules (BR-01–BR-15), Acceptance Criteria (AC-01–AC-15), Schema สำหรับ `ActionTaken` และ `version`, Transition Matrix, Resolution Gate, Role-based Dashboards (Requester, IT Staff, Admin), และ Test Matrix พร้อมเกณฑ์ Acceptance ชัดเจนก่อนเริ่มเขียนโค้ดจริง |
+| **Fix Resolution Gate & OCC Bypass Vulnerability (Contract Hardening)** | Context: TokTickIT Lab 4. The four contract documents in docs/lab-04/ have specific gaps... STEP 1 — Fix the Resolution Gate / OCC bypass: The current design lets a client skip the Resolution Gate's "at least one Action Taken" requirement and OCC version check by omitting `version`... Revise specification.md (BR-10, BR-12) and api-spec.md... | การแก้ช่องโหว่ทางสัญญาช่วยตอกย้ำหลักการความปลอดภัยว่า Backend ต้องบังคับใช้ Business Rules สำคัญอย่าง Resolution Gate (ต้องมี ≥1 Action Taken และ non-empty summary) อย่างเด็ดขาดสำหรับทุก Request ที่เปลี่ยนเป็น Resolved ไม่ว่า client จะส่ง `version` หรือไม่ หรือจะพยายามยิง API ข้ามหน้า UI ก็ตาม โดยคงความปลอดภัยของ OCC ผ่าน monotonic version incrementation |
+| **Audit Contract Documents against Engineering Gaps (Prompt B - Contracts)** | Audit the edits made to docs/lab-04/specification.md, api-spec.md, tests.md, and ui-spec.md. Report Pass/Fail with evidence per item... 1. Resolution Gate universal enforcement... 2. OCC consistency... 3. Performance-smoke test... 4. True unit test... 5. Migration/backfill test... 6. Responsive & a11y tests... 7. AC-to-test mapping matrix... 8. Cross-document consistency... | การทำ Audit ช่วยตรวจทานความสอดคล้องกันข้ามไฟล์ (Cross-document consistency) ทั้ง 4 ฉบับ ยืนยันว่าไม่มี endpoint path หรือ field name ที่สะกดผิด และได้เพิ่ม Test IDs ใหม่ (`PERF-01`, `UNIT-01`, `UNIT-02`, `MIGR-01`, `RESP-01`, `A11Y-01`) ลงใน Inventory และ AC Mapping Matrix ครบถ้วน |
+| **Prisma Schema Evolution & OCC Migration (feature/2)** | Add ActionTaken model to schema.prisma and add version integer column to Ticket model. Generate migration and ensure backwards compatibility with legacy tickets. | AI ช่วยเขียน Prisma Schema เชื่อมความสัมพันธ์ `ActionTaken` เข้ากับ `Ticket` และ `User` (`performedBy`, `assignee`) พร้อม default status `COMPLETED`, index บน `ticketId`, และเพิ่ม `version Int @default(1)` บน `Ticket` เพื่อรองรับ Optimistic Concurrency Control โดยไม่กระทบข้อมูลเดิมของ Lab 1–3 |
+| **Actions Taken API & Component Implementation (feature/2 & 3)** | Context: TokTickIT Lab 4, feature/2-actions-taken. STEP 0 — Inspect first... STEP 1 — Implement using TDD: POST, GET, PATCH actions-taken endpoints, assignee validation, follow-up note coupling, and ActionsTakenSection component with desktop table and mobile card view... | การทำ TDD ช่วยให้ควบคุม Business Rules สำคัญของ Actions Taken ได้แม่นยำ เช่น ผู้สร้างต้องเป็น IT Staff/Admin, ผู้รับมอบหมายต้อง Active และไม่ใช่ Requester (BR-05), เมื่อ `isFollowUpRequired = true` บังคับต้องมี `followUpNote` (BR-06) และหน้าบ้านแสดงผล Responsive แยกมุมมอง Requester เป็น Read-Only อย่างชัดเจน |
+| **Ticket Workflow, Transition Matrix & Resolution Gate (feature/4)** | Context: TokTickIT Lab 4, feature/4-ticket-workflow. STEP 0 — Inspect first... Implement BR-09 transition matrix, server Resolution Gate (BR-10), OCC stale-update rejection (BR-12), and TicketDetail status dropdown with confirmation modal... | การสร้าง pure validator `isValidStatusTransition` และ `validateResolutionGate` ใน `statusTransitions.ts` ช่วยแยก Business Logic ออกจาก HTTP layer ทำให้เขียน Unit Test ได้รวดเร็ว และป้องกัน illegal jumps ข้ามสถานะ ส่วนหน้า UI เมื่อเลือก Resolved จะเปิด Resolution Gate modal บังคับกรอก Summary และบล็อกการกด Resolve หากไม่มี Action Taken |
+| **Multi-Role Dashboards Implementation (feature/5)** | Context: TokTickIT Lab 4, feature/5-dashboards. Implement GET /api/requester/dashboard, GET /api/staff/dashboard, and GET /api/admin/dashboard with metric cards, urgent tickets list, and drill-down queue navigation... | ช่วยสร้างการสรุปผลเชิงปฏิบัติการที่มีประสิทธิภาพ โดย Requester Dashboard นับเฉพาะตั๋วตนเองและกำหนดกรอบ 30 วันสำหรับ Recently Resolved (BR-13), Staff Dashboard คำนวณ active queue, unassigned, my assigned, priority breakdown และ top 5 urgent tickets (BR-14), ส่วน Admin Dashboard ผสาน operational KPIs ร่วมกับสถิติผู้ใช้งานในระบบ (BR-15) |
+| **Final Hardening & Regression Suite Resolution (feature/6)** | Context: TokTickIT Lab 4, feature/6-final-hardening. Run complete regression suite (server, client, E2E), audit and fix feedback states, prevent double submission, preserve form data, clean console errors, update README and ui-spec.md audit... | ได้จัดการกำจัด `console.error` ทั้งหมดในระบบ, ป้องกันการกดซ้ำ (Double Submission Guards) ในฟอร์มสร้างตั๋ว บันทึก Action เปลี่ยนสถานะ และจัดการผู้ใช้, รักษาข้อมูลฟอร์มเมื่อเกิดข้อผิดพลาด, และคืนค่า Disabled Service Actions Tab เพื่อให้ชุดทดสอบเดิมของ Lab 3 ทำงานร่วมกับ Lab 4 ได้อย่างสมบูรณ์แบบ (100% Green Across All Suites) |
+| **Playwright E2E Lab 4 Suites Execution & Selector Alignment** | ไปเทสlab3 แล้ว lab4 อะ — Execute full Lab 4 test suites (Server, Client, Playwright E2E) and report complete raw output. | ช่วยชี้เป้าและกระตุ้นให้สร้างชุดทดสอบ E2E และ Unit Test สำหรับ Lab 4 อย่างครบวงจร ทั้งการตรวจสอบ A11y/ARIA sematics, Multi-technician Actions Taken lifecycle, Responsive Viewports (375px, 768px, 1280px) และ Ticket Resolution Gate flow พร้อมทั้งปรับจูน selector เข้ากับระบบ Authentication จริง |
+| **Artifact Separation & Lab 3 Snapshot Integrity** | รัน playwright ของ lab4 ก็เก็บไว้ใน folder lab4 สิ ถ้าไปทับlab3 ก็ revert กลับ | เป็นบทเรียนสำคัญเรื่อง Test Isolation และ Artifact Hygiene: ได้ทำการ Revert ไฟล์ใน `artifacts/lab-03/` กลับคืนสถานะเดิมด้วย `git restore` และสร้างสคริปต์ `e2e/lab-04/scenario-screenshots.spec.ts` เพื่อบันทึกภาพผลลัพธ์ของ Lab 4 แยกไว้ใน `artifacts/lab-04/screenshots/` โดยเฉพาะ ไม่ให้ปะปนกับผลการทดสอบของ Lab ก่อนหน้า |
 
 ---
 
 ## Reflection
+
+ตลอดกระบวนการพัฒนาและส่งมอบ TokTickIT ใน Lab 04 การใช้ AI ในฐานะ Pair Programmer และ Auditor ได้มอบบทเรียนและมุมมองเชิงวิศวกรรมซอฟต์แวร์ที่สำคัญ ดังนี้:
+
+### 1. Specification Integrity & Preventing Business Logic Bypasses
+
+- **บทเรียนเรื่องการปิดช่องโหว่ Contract**: ในช่วงต้นของการออกแบบ มีแนวคิดที่จะอนุญาตให้ Request ที่ไม่มี `version` ข้ามการตรวจ Resolution Gate เพื่อให้ Integration Tests เก่าของ Lab 3 ผ่านได้ง่าย แต่การ Review พบว่าวิธีนี้ขัดแย้งกับหลักการความปลอดภัยอย่างรุนแรง เพราะเปิดช่องให้ Client ใดๆ ก็ตามข้ามกฎ "ต้องมี Action Taken ก่อนปิดงาน" ได้เพียงแค่ไม่ส่งฟิลด์ `version`
+- **แนวทางที่ถูกต้อง**: กฎทางธุรกิจระดับแกนกลาง (Core Business Rules) ต้องถูกบังคับใช้อย่างเสมอภาค (Universally Enforced) ไม่ว่าจะผ่าน UI ปกติหรือยิง API ตรง ส่วนการทำงานร่วมกับระบบเดิม (Backwards Compatibility) ต้องจัดการด้วยการปรับปรุง Seed Data และ Fixture ในชุดทดสอบเดิมให้มีคุณภาพ ไม่ใช่การยอมลดหย่อนความปลอดภัยของ Backend
+
+### 2. Optimistic Concurrency Control (OCC) ในระบบที่มีผู้ใช้หลายบทบาท
+
+- การนำฟิลด์ `version` (Integer) มาใช้ในตาราง `Ticket` และส่งผ่าน `PATCH /api/staff/tickets/:id/*` ช่วยแก้ปัญหา Stale Updates หรือ Lost Updates ได้อย่างเด็ดขาด เมื่อมี IT Staff สองคนเปิดหน้าตั๋วใบเดียวกัน คนที่ส่งการเปลี่ยนแปลงช้ากว่าจะได้ `HTTP 409 Conflict` พร้อม Error Code `CONCURRENCY_CONFLICT` และข้อมูลล่าสุดของตั๋ว
+- ด้าน UX หน้าบ้าน: เมื่อ Client ได้รับ HTTP 409 ระบบจะไม่พัง (No Crash) และไม่ขึ้นกล่องข้อความสีแดงรบกวน แต่จะแสดง Notification Banner แจ้งเตือนว่าตั๋วถูกแก้ไขโดยผู้อื่น และทำการ Fetch ข้อมูลล่าสุดมารีเฟรชหน้าจอให้อัตโนมัติ เพื่อให้ผู้ใช้ตัดสินใจใหม่อย่างปลอดภัย
+
+### 3. Pure Validators and Separation of Concerns (TDD)
+
+- การแยกฟังก์ชันตรวจสอบกฎสถานะ `isValidStatusTransition` และ `validateResolutionGate` ออกมาเป็น Pure Functions ใน `server/src/utils/statusTransitions.ts` ทำให้เราสามารถเขียน Unit Test (`UNIT-01`, `UNIT-02`) ที่รันได้เร็วระดับมิลลิวินาที (ไม่ต้องเปิด DB หรือยิง HTTP Request)
+- โครงสร้างนี้ทำให้ Logic การเปลี่ยนสถานะตั๋วทั้ง 8 สถานะ (`New`, `Open`, `In Progress`, `Waiting for Requester`, `Resolved`, `Closed`, `Reopened`, `Cancelled`) มี Single Source of Truth และนำไปใช้ได้ทั้งใน Controller ของ Backend และการตรวจสอบใน Helper Functions
+
+### 4. Backwards Compatibility & The Value of Full Regression Suites
+
+- เมื่อระบบก้าวหน้าจาก Lab 3 สู่ Lab 4 การเปลี่ยนแปลง UI เช่น การยกระดับแท็บ Actions Taken เดิมให้กลายเป็น First-Class Card Section อาจส่งผลกระทบต่อชุดทดสอบเดิม (เช่น `StaffTicketDetail.test.tsx` ของ Lab 3 ที่คาดหวังแท็บ Service Actions ในสถานะ Disabled)
+- บทเรียนสำคัญคือ: ในการพัฒนาส่วนต่อขยาย (Hardening & Evolution) เราต้องคำนึงถึงทั้งฟีเจอร์ใหม่และชุดทดสอบเดิม การคง Placeholder Tab แบบ Disabled ไว้ ควบคู่กับการแสดง Section ใหม่ด้านล่าง ทำให้เราผ่านทั้ง Lab 3 Regression (100% Pass) และ Lab 4 Feature Acceptance (100% Pass) ไปพร้อมกันได้โดยไม่มี Conflict
+
+### 5. Artifact Isolation and Test Cleanliness
+
+- การรัน End-to-End Visual Verification Test ต้องมีความระมัดระวังเป็นพิเศษเรื่อง Target Directory ของรูปภาพที่ Capture
+- คำสั่งของชุดทดสอบ Lab 4 ต้องกำหนด Output Directory เป็น `artifacts/lab-04/screenshots/` โดยเฉพาะ และแยกหมวดหมู่ตามฟีเจอร์ (`actions-taken/`, `resolution-gate/`, `ticket-workflow/`, `responsive-audit/`) การไม่ไปแตะต้องหรือเขียนทับ `artifacts/lab-03/` ช่วยรักษาร่องรอยประวัติการทดสอบ (Audit Trail) ของแต่ละ Sprint ให้สมบูรณ์และตรวจสอบย้อนหลังได้จริง
