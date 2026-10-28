@@ -22,8 +22,8 @@ describe('Reference Data Endpoints (Active Records Only)', () => {
 
     it('does not return any inactive requesters', async () => {
       // Find an inactive requester from DB if one exists, or query DB directly to compare
-      const inactiveInDb = await prisma.developmentRequester.findFirst({
-        where: { isActive: false },
+      const inactiveInDb = await prisma.user.findFirst({
+        where: { role: 'REQUESTER', isActive: false },
       });
 
       const res = await request(app).get('/api/dev-requesters');

@@ -28,8 +28,8 @@ describe('Attachment Endpoints', () => {
   let ticketIdReq2: number;
 
   beforeAll(async () => {
-    const requesters = await prisma.developmentRequester.findMany({
-      where: { isActive: true },
+    const requesters = await prisma.user.findMany({
+      where: { role: 'REQUESTER', isActive: true },
       take: 2,
     });
     expect(requesters.length).toBeGreaterThanOrEqual(2);

@@ -11,3 +11,37 @@
     gap: 18px;
   }
 }
+
+.dashboard .btn {
+  min-height: 44px;
+}
+
+.dashboard { color: #2B3B33; }
+.dashboard .card { border-color: #D0DDD6; }
+.dashboard .text-success { color: #006B3C !important; }
+.dashboard .text-muted { color: #61756C !important; }
+.dashboard .btn-success {
+  --bs-btn-bg: #006B3C;
+  --bs-btn-border-color: #006B3C;
+  --bs-btn-hover-bg: #0B7A46;
+  --bs-btn-hover-border-color: #0B7A46;
+}
+.dashboard .btn-outline-success {
+  --bs-btn-color: #0B7A46;
+  --bs-btn-border-color: #0B7A46;
+  --bs-btn-hover-bg: #006B3C;
+  --bs-btn-hover-border-color: #006B3C;
+}
+.navbar .nav-link.text-white-50 { color: #FFFFFF !important; }
+.navbar .nav-link.active { border-bottom: 2px solid #FFFFFF !important; }
+:focus-visible { outline: 2px solid #0B7A46 !important; outline-offset: 2px; }
+.modal.show { overflow-y: auto; }
+.modal .btn, #actions-taken-section .btn { min-height: 44px; min-width: 44px; }
+.btn-outline-secondary { --bs-btn-color: #52645B; --bs-btn-border-color: #61756C; }
+.text-muted { color: #52645B !important; }
+@media (max-width: 767.98px) {
+  button, input:not([type="checkbox"]), select, textarea, .nav-link { min-height: 44px !important; }
+  button, .btn-close { min-width: 44px; }
+  input[type="checkbox"] { min-width: 24px; min-height: 24px; }
+  input[type="checkbox"] + label { padding: 10px 0; }
+}

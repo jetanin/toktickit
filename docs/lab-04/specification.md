@@ -421,6 +421,8 @@ model ActionTaken {
 
 ## 10. Product Definition of Done (DoD)
 
+The implementation audit, requirement evidence, Docker test environment, and current execution results are recorded in [compliance-review.md](compliance-review.md). The audit also corrects legacy Lab 2 fixtures to use migrated `User` identities, rather than assuming `DevelopmentRequester.id` is a `User.id`; business assertions remain enforced.
+
 1. **Specification & Contracts**: Complete `docs/lab-04/` specification, ui-spec, api-spec, and tests documents reviewed and aligned with stakeholder goals.
 2. **Schema & Migration**: Prisma schema updated with `ActionTaken` model and `version` concurrency column; clean, idempotent migration and backfill scripts tested without data loss.
 3. **Automated Test Coverage**:

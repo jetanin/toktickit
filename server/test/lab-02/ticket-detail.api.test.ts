@@ -8,8 +8,8 @@ describe('GET /api/tickets/:id (Ownership & Details)', () => {
   let ticketAId: number;
 
   beforeAll(async () => {
-    const requesters = await prisma.developmentRequester.findMany({
-      where: { isActive: true },
+    const requesters = await prisma.user.findMany({
+      where: { role: 'REQUESTER', isActive: true },
       take: 2,
     });
     expect(requesters.length).toBeGreaterThanOrEqual(2);

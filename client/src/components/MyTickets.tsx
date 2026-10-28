@@ -27,12 +27,13 @@ interface CategoryOption {
 }
 
 interface Props {
+  initialStatus?: string;
   requester?: Requester;
   onViewTicket: (ticketId: number) => void;
   onCreateNew?: () => void;
 }
 
-const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) => {
+const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew, initialStatus }) => {
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     totalItems: 0,
@@ -49,7 +50,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [category, setCategory] = useState('');
   const [priority, setPriority] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(initialStatus ?? '');
   const [sort, setSort] = useState('updatedAt');
   const [order, setOrder] = useState('desc');
   const [page, setPage] = useState(1);
@@ -291,6 +292,7 @@ const MyTickets: React.FC<Props> = ({ requester, onViewTicket, onCreateNew }) =>
               >
                 <option value="">All Statuses</option>
                 <option value="New">New</option>
+                {['Active', 'Open', 'In Progress', 'Waiting for Requester', 'Resolved', 'Recently Resolved', 'Closed', 'Reopened', 'Cancelled'].map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
             <div className="col-12 col-sm-6 col-md-3 col-lg-2 d-grid">

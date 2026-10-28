@@ -31,12 +31,13 @@ interface CategoryOption {
 }
 
 interface Props {
+  initialFilters?: { status?: string; assigned?: string };
   currentUser: AuthUser;
   onViewTicket: (ticketId: number) => void;
   onCreateNew?: () => void;
 }
 
-const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreateNew }) => {
+const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreateNew, initialFilters }) => {
   const [tickets, setTickets] = useState<StaffTicketItem[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     totalItems: 0,
@@ -55,8 +56,8 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [category, setCategory] = useState('');
   const [priority, setPriority] = useState('');
-  const [status, setStatus] = useState('');
-  const [assigned, setAssigned] = useState('all');
+  const [status, setStatus] = useState(initialFilters?.status ?? '');
+  const [assigned, setAssigned] = useState(initialFilters?.assigned ?? 'all');
   const [sort, setSort] = useState('createdAt');
   const [order, setOrder] = useState('desc');
   const [page, setPage] = useState(1);
@@ -277,7 +278,7 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
       return (
         <span
           className="badge fw-medium px-2 py-1"
-          style={{ backgroundColor: '#F4F5F7', color: '#8993A4', border: '1px solid #DFE1E6' }}
+          style={{ backgroundColor: '#F4F5F7', color: '#61756C', border: '1px solid #DFE1E6' }}
         >
           Cancelled
         </span>
@@ -443,6 +444,7 @@ const StaffTicketQueue: React.FC<Props> = ({ currentUser, onViewTicket, onCreate
                     style={{ minHeight: '40px' }}
                   >
                     <option value="">All Statuses</option>
+                    <option value="Active">Active</option>
                     <option value="New">New</option>
                     <option value="Open">Open</option>
                     <option value="In Progress">In Progress</option>

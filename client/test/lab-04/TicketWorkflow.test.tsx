@@ -345,6 +345,19 @@ describe('Lab 4 / UI-08: Ticket Workflow, Resolution Gate & Concurrency Control'
     });
   });
 
+  it('preserves the resolution modal and unsaved summary after a 409 refresh', async () => {
+    setupMockFetch({ ticket: { ...sampleTicket, resolutionSummary: 'Previously saved summary' },
+      statusPatchResponse: { ok: false, status: 409, body: { code: 'CONCURRENCY_CONFLICT' } } });
+    render(<TicketDetail currentUser={mockStaffUser} ticketId={101} onBack={() => {}} />);
+    const status = await screen.findByLabelText('Ticket Status');
+    fireEvent.change(status, { target: { value: 'Resolved' } });
+    fireEvent.change(screen.getByLabelText('Resolution Summary'), { target: { value: 'Unsaved diagnostic draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Resolution' }));
+    expect(await screen.findByTestId('concurrency-conflict-banner')).toBeVisible();
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.getByLabelText('Resolution Summary')).toHaveValue('Unsaved diagnostic draft');
+  });
+
   it('displays concurrency conflict banner and reloads fresh data when server returns 409 Conflict', async () => {
     // Setup fetch to simulate 409 Concurrency Conflict on status update
     setupMockFetch({

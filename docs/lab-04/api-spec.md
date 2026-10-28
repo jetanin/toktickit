@@ -58,6 +58,8 @@ TokTickIT: Actions Taken, Dashboards, and Workflow Hardening
 
 ### 1.4 Wire Format Convention (Enum Serialization)
 
+Implementation hardening (2026-10-28): operational writes predicate on both ticket ID and the version read, so simultaneous requests cannot both commit. When a body version is omitted, `updatedAt` or `If-Match` (quoted version or ISO timestamp) is checked if supplied. Conflict responses include top-level `updatedAt`, `currentVersion`, and the latest ticket. Action Taken create/update also advance the parent ticket version atomically; interactive clients supply the parent version and refresh it after success.
+
 All status and priority enums follow a single consistent convention across the API:
 
 - **Canonical Wire Format (Request & Response)**: **Title Case** with spaces.
@@ -197,6 +199,8 @@ Retrieve a single Action Taken record.
 
 ### 2.4 PATCH /api/staff/tickets/:id/actions-taken/:actionId
 
+The editable UI date field is persisted through optional `actionDateTime` (ISO 8601 string); invalid types/dates return 400. `version` is the parent ticket's concurrency token. `performedById` and `ticketId` remain immutable regardless of extra client fields.
+
 Update an existing Action Taken record.
 
 - **Access**: `IT Staff`, `Administrator`.
@@ -227,6 +231,8 @@ Update an existing Action Taken record.
 ---
 
 ## 3. Dashboard Endpoints
+
+Dashboard drill-downs use the existing list endpoints: `GET /api/tickets?status=Active` and `GET /api/staff/tickets?status=Active` select the five active statuses; requester `status=Recently+Resolved` selects Resolved tickets with `updatedAt` within 30 days. Individual status values and staff `assigned=me|unassigned` retain their existing behavior.
 
 ### 3.1 GET /api/requester/dashboard
 
@@ -494,6 +500,8 @@ Requester advisory signal indicating that their issue appears resolved (BR-11, A
 ---
 
 ## 5. Regression Endpoints Preservation (Labs 1–3)
+
+The legacy `/api/dev-requesters` selector returns active Requester identities from the migrated `User` model (public `id`, `name`, `email`, `isActive` fields only). Its IDs are the same namespace accepted by the compatibility `X-Requester-Id` header. Staff/Admin IDs are rejected by that header; new dashboard and Actions Taken endpoints still require authenticated sessions.
 
 All existing endpoints from earlier labs remain active. Endpoints listed below are **unchanged** unless noted:
 

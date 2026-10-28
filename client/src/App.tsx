@@ -7,8 +7,11 @@ import MyTickets from './components/MyTickets';
 import TicketDetail from './components/TicketDetail';
 import StaffTicketQueue from './components/StaffTicketQueue';
 import UserManagement from './components/UserManagement';
+import RequesterDashboard from './components/RequesterDashboard';
+import StaffDashboard from './components/StaffDashboard';
+import type { DashboardFilters } from './components/DashboardShared';
 
-export type ViewType = 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL' | 'STAFF_QUEUE' | 'USER_MANAGEMENT';
+export type ViewType = 'DASHBOARD' | 'MY_TICKETS' | 'CREATE_TICKET' | 'TICKET_DETAIL' | 'STAFF_QUEUE' | 'USER_MANAGEMENT';
 
 function App() {
   const loggedOutRef = useRef(false);
@@ -22,6 +25,7 @@ function App() {
   });
 
   const [currentView, setCurrentView] = useState<ViewType>(() => {
+    if (/^\/(requester|staff|admin)\/dashboard\/?$/.test(window.location.pathname)) return 'DASHBOARD';
     try {
       const saved = localStorage.getItem('toktickit_user');
       if (saved) {
@@ -35,6 +39,7 @@ function App() {
   });
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilters>({});
 
   // Check existing session
   useEffect(() => {
@@ -118,6 +123,9 @@ function App() {
   };
 
   const navigateTo = (view: ViewType, ticketId: number | null = null) => {
+    const rolePath = currentUser?.role === 'ADMINISTRATOR' ? 'admin' : currentUser?.role === 'IT_STAFF' ? 'staff' : 'requester';
+    window.history.replaceState(null, '', view === 'DASHBOARD' ? `/${rolePath}/dashboard` : '/');
+    setDashboardFilters({});
     setCurrentView(view);
     setSelectedTicketId(ticketId);
     setMobileMenuOpen(false);
@@ -186,13 +194,18 @@ function App() {
             className="navbar-toggler border-0"
             type="button"
             aria-label="Toggle navigation"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mainNavigation"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             <span className="navbar-toggler-icon"></span>
           </button>
 
-          <div className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`}>
+          <div id="mainNavigation" className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`}>
             <ul className="navbar-nav me-auto mb-2 mb-md-0">
+              <li className="nav-item"><button type="button"
+                className={`nav-link btn btn-link ${currentView === 'DASHBOARD' ? 'active fw-bold text-white' : 'text-white-50'}`}
+                onClick={() => navigateTo('DASHBOARD')}>Dashboard</button></li>
               {isStaffOrAdmin && (
                 <li className="nav-item">
                   <button
@@ -287,12 +300,22 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-grow-1 py-4 px-3 px-md-4">
         <div className="container-lg" style={{ maxWidth: '1140px' }}>
+          {currentView === 'DASHBOARD' && (isStaffOrAdmin ?
+            <StaffDashboard isAdmin={isAdmin}
+              onViewTicket={(id) => navigateTo('TICKET_DETAIL', id)}
+              onViewQueue={(filters) => { navigateTo('STAFF_QUEUE'); setDashboardFilters(filters); }}
+              onManageUsers={() => navigateTo('USER_MANAGEMENT')}
+              onCreateNew={canCreateTicket ? () => navigateTo('CREATE_TICKET') : undefined} /> :
+            <RequesterDashboard onViewTicket={(id) => navigateTo('TICKET_DETAIL', id)}
+              onViewTickets={(filters) => { navigateTo('MY_TICKETS'); setDashboardFilters(filters); }}
+              onCreateNew={() => navigateTo('CREATE_TICKET')} />)}
           {currentView === 'USER_MANAGEMENT' && (
             <UserManagement currentUser={currentUser} />
           )}
 
           {currentView === 'STAFF_QUEUE' && (
             <StaffTicketQueue
+              initialFilters={dashboardFilters}
               currentUser={currentUser}
               onViewTicket={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
               onCreateNew={canCreateTicket ? () => navigateTo('CREATE_TICKET') : undefined}
@@ -301,6 +324,7 @@ function App() {
 
           {currentView === 'MY_TICKETS' && (
             <MyTickets
+              initialStatus={dashboardFilters.status}
               requester={effectiveRequester}
               onViewTicket={(ticketId) => navigateTo('TICKET_DETAIL', ticketId)}
               onCreateNew={() => navigateTo('CREATE_TICKET')}
