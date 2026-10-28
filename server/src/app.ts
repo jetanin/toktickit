@@ -30,9 +30,10 @@ import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth';
 import staffRouter from './routes/staff';
 import adminRouter from './routes/admin';
+import dashboardRouter from './routes/dashboards';
 import { authenticateSession, gatePasswordChange } from './middleware/auth';
 import { COOKIE_NAME } from './utils/auth';
-import { formatTicket, parseStatus, parsePriority } from './utils/format';
+import { formatTicket, parseStatus, parsePriority, formatActionTaken } from './utils/format';
 
 const app = express();
 app.use(cors());
@@ -42,6 +43,7 @@ app.use(authenticateSession);
 app.use(gatePasswordChange);
 
 app.use('/api/auth', authRouter);
+app.use('/api', dashboardRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/admin', adminRouter);
 
@@ -74,45 +76,12 @@ export const requireRequester = async (req: Request, res: Response, next: NextFu
   }
 
   try {
-    let user = await prisma.user.findUnique({
-      where: { id: requesterId, isActive: true }
-    });
-    
-    if (!user) {
-      const devReq = await prisma.developmentRequester.findUnique({
-        where: { id: requesterId, isActive: true }
-      });
-      if (!devReq) {
-        res.status(403).json({ error: 'Requester not found or inactive' });
-        return;
-      }
-
-      user = await prisma.user.findUnique({
-        where: { email: devReq.email, isActive: true }
-      });
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            id: devReq.id,
-            name: devReq.name,
-            email: devReq.email,
-            passwordHash: 'legacy_dev_user',
-            role: 'REQUESTER',
-            isActive: true,
-            mustChangePassword: true,
-          }
-        }).catch(async () => {
-          return await prisma.user.findFirst({ where: { isActive: true } });
-        });
-      }
-    }
-
-    if (!user || !user.isActive) {
+    const user = await prisma.user.findUnique({ where: { id: requesterId } });
+    if (!user || !user.isActive || user.role !== 'REQUESTER') {
       res.status(403).json({ error: 'Requester not found or inactive' });
       return;
     }
-    
+
     // Attach to request
     req.user = user;
     (req as any).requester = user;
@@ -130,8 +99,10 @@ app.get('/api/health', (req, res) => {
 // REFERENCE DATA
 app.get('/api/dev-requesters', async (req, res) => {
   try {
-    const requesters = await prisma.developmentRequester.findMany({
-      where: { isActive: true },
+    // The compatibility selector must return the migrated identity namespace
+    // accepted by X-Requester-Id, without exposing authentication fields.
+    const requesters = await prisma.user.findMany({
+      where: { role: 'REQUESTER', isActive: true },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, email: true, isActive: true },
     });
@@ -170,20 +141,21 @@ app.get('/api/related-systems', async (req, res) => {
   }
 });
 
+const mapStatus = (s: string) => {
+  if (s === 'NEW') return 'New';
+  if (s === 'OPEN') return 'Open';
+  if (s === 'IN_PROGRESS') return 'In Progress';
+  if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
+  if (s === 'RESOLVED') return 'Resolved';
+  if (s === 'CLOSED') return 'Closed';
+  if (s === 'REOPENED') return 'Reopened';
+  if (s === 'CANCELLED') return 'Cancelled';
+  return s;
+};
+
 // Format ticket for API response
 const formatTicket = (ticket: any) => {
   const mapPriority = (p: string | null) => p ? p.charAt(0) + p.slice(1).toLowerCase() : null;
-  const mapStatus = (s: string) => {
-    if (s === 'NEW') return 'New';
-    if (s === 'OPEN') return 'Open';
-    if (s === 'IN_PROGRESS') return 'In Progress';
-    if (s === 'WAITING_FOR_REQUESTER') return 'Waiting for Requester';
-    if (s === 'RESOLVED') return 'Resolved';
-    if (s === 'CLOSED') return 'Closed';
-    if (s === 'REOPENED') return 'Reopened';
-    if (s === 'CANCELLED') return 'Cancelled';
-    return s;
-  };
   
   return {
     ...ticket,
@@ -335,7 +307,11 @@ app.get('/api/tickets', requireRequester, async (req, res) => {
     }
     if (status) {
       const statusMapped = parseStatus(status as string);
-      if (statusMapped) where.currentStatus = statusMapped;
+      if (statusMapped === 'ACTIVE') where.currentStatus = { in: ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'REOPENED'] };
+      else if (statusMapped === 'RECENTLY_RESOLVED') {
+        where.currentStatus = 'RESOLVED';
+        where.updatedAt = { gte: new Date(Date.now() - 30 * 86400000) };
+      } else if (statusMapped) where.currentStatus = statusMapped;
     }
     
     const totalItems = await prisma.ticket.count({ where });
@@ -771,7 +747,7 @@ const requireInternalNotesRole = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-app.get('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req, res) => {
+app.get(['/api/tickets/:id/internal-notes', '/api/staff/tickets/:id/internal-notes'], requireInternalNotesRole, async (req, res) => {
   try {
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
@@ -813,7 +789,7 @@ app.get('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req,
   }
 });
 
-app.post('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req, res) => {
+app.post(['/api/tickets/:id/internal-notes', '/api/staff/tickets/:id/internal-notes'], requireInternalNotesRole, async (req, res) => {
   try {
     const user = req.user!;
     const ticketId = parseInt(req.params.id, 10);
@@ -872,10 +848,14 @@ app.post('/api/tickets/:id/internal-notes', requireInternalNotesRole, async (req
   }
 });
 
-// RESOLVE INDICATION
-app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, res) => {
+// RESOLVE INDICATION (and alias POST /api/tickets/:id/problem-resolved)
+const handleResolveIndication = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
+    if (user.role !== 'REQUESTER') {
+      res.status(403).json({ error: 'Access forbidden: Insufficient permissions' });
+      return;
+    }
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket id' });
@@ -883,7 +863,7 @@ app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, r
     }
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId }
+      where: { id: ticketId },
     });
 
     if (!ticket) {
@@ -897,31 +877,120 @@ app.patch('/api/tickets/:id/resolve-indication', requireRequester, async (req, r
       return;
     }
 
-    // Update requesterResolutionPending = true and append system public comment per Spec § 11.5
+    const { comment } = req.body || {};
+    let commentContent = `${user.name} indicated that the problem appears resolved.`;
+    if (comment && typeof comment === 'string' && comment.trim().length > 0) {
+      commentContent += ` Note: ${comment.trim()}`;
+    }
+
+    // Update requesterResolutionPending = true and append system public comment per Spec § 11.5 / BR-11
     // Never modify currentStatus to RESOLVED or CLOSED per BR-05
     await prisma.$transaction([
       prisma.ticket.update({
         where: { id: ticketId },
-        data: { requesterResolutionPending: true }
+        data: { requesterResolutionPending: true, version: { increment: 1 } },
       }),
       prisma.publicComment.create({
         data: {
           ticketId,
           authorId: user.id,
-          content: `${user.name} indicated that the problem appears resolved.`
-        }
-      })
+          content: commentContent,
+        },
+      }),
     ]);
 
     res.status(200).json({
       id: ticketId,
+      ticketNumber: ticket.ticketNumber,
+      currentStatus: mapStatus(ticket.currentStatus),
       requesterResolutionPending: true,
-      message: 'Problem indicated as resolved'
+      message: 'Problem indicated as resolved. Awaiting IT Staff formal resolution.',
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
+};
+
+app.patch('/api/tickets/:id/resolve-indication', requireRequester, handleResolveIndication);
+app.post('/api/tickets/:id/problem-resolved', requireRequester, handleResolveIndication);
+
+// 2.1 GET /api/tickets/:id/actions-taken
+app.get('/api/tickets/:id/actions-taken', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      res.status(400).json({ error: 'Invalid ticket id' });
+      return;
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true,
+        ticketNumber: true,
+        requesterId: true,
+      },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    // Role-Based Access Control:
+    // - IT_STAFF & ADMINISTRATOR: allowed on any ticket
+    // - REQUESTER: allowed ONLY on owned tickets
+    // - Unauthenticated / cross-requester: 401 Unauthorized or 403 Forbidden
+    const user = req.user;
+    if (!user) {
+      // Legacy support for X-Requester-Id header if present
+      const legacyId = req.header('X-Requester-Id');
+      if (legacyId && parseInt(legacyId, 10) === ticket.requesterId) {
+        // Authenticated as ticket owner via legacy header
+      } else {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+    } else if (user.role === 'REQUESTER' && user.id !== ticket.requesterId) {
+      res.status(403).json({ error: 'Access forbidden: You can only view Actions Taken on your own tickets' });
+      return;
+    }
+
+    const actions = await prisma.actionTaken.findMany({
+      where: { ticketId },
+      orderBy: [
+        { actionDateTime: 'asc' },
+        { id: 'asc' },
+      ],
+      include: {
+        performedBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    res.status(200).json({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      data: actions.map(formatActionTaken),
+    });
+  } catch (err) {
+    console.error('List actions taken error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (error && typeof error === 'object' && 'type' in error && error.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Invalid JSON request body' });
+    return;
+  }
+  console.error('Unhandled API error:', error);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 export default app;

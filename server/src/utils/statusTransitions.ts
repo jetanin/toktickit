@@ -41,3 +41,24 @@ export function getPermittedNextStatuses(currentStatus: string): string[] {
   return PERMITTED_STATUS_TRANSITIONS[current] || [];
 }
 
+/**
+ * Validate Resolution Gate requirements (BR-10):
+ * - At least one recorded Action Taken belonging to the ticket
+ * - Non-empty resolutionSummary (1-1000 characters)
+ */
+export function validateResolutionGate(actionsCount: number, resolutionSummary: unknown): { valid: boolean; error?: string } {
+  const summaryValid =
+    typeof resolutionSummary === 'string' &&
+    resolutionSummary.trim().length >= 1 &&
+    resolutionSummary.trim().length <= 1000;
+
+  if (actionsCount < 1 || !summaryValid) {
+    return {
+      valid: false,
+      error: 'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.',
+    };
+  }
+
+  return { valid: true };
+}
+

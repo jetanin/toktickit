@@ -30,6 +30,7 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
   const [createdTicketInfo, setCreatedTicketInfo] = useState<{ id: number; ticketNumber: string } | null>(null);
 
   useEffect(() => {
@@ -49,8 +50,10 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
             setRelatedSystems(syss);
           }
         }
-      } catch (err) {
-        console.error('Failed to load reference data:', err);
+      } catch (_err) {
+        if (mounted) {
+          setApiError('Unable to load ticket categories and systems. Please refresh the page.');
+        }
       } finally {
         if (mounted) setLoadingRefs(false);
       }
@@ -111,6 +114,8 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || loadingRefs) return;
+
     setTouched({
       summary: true,
       description: true,
@@ -132,6 +137,7 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
 
     setSubmitting(true);
     setApiError(null);
+    setAttachmentWarning(null);
 
     try {
       // 1. Create Ticket
@@ -168,10 +174,10 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
           });
 
           if (!attachRes.ok) {
-            console.error('Attachment upload failed, but ticket was created');
+            setAttachmentWarning('Ticket was created, but the attachment failed to upload. You can re-upload it on the ticket details screen.');
           }
-        } catch (attErr) {
-          console.error('Attachment upload error:', attErr);
+        } catch (_attErr) {
+          setAttachmentWarning('Ticket was created, but the attachment failed to upload. You can re-upload it on the ticket details screen.');
         }
       }
 
@@ -208,6 +214,12 @@ const CreateTicket: React.FC<Props> = ({ requester, onCancel, onCreated }) => {
           <p className="text-muted mb-4">
             Your support request has been logged in the system. You can view its details or return to your tickets list.
           </p>
+
+          {attachmentWarning && (
+            <div className="alert alert-warning text-start mb-4" role="alert">
+              <strong>Notice:</strong> {attachmentWarning}
+            </div>
+          )}
 
           <div className="d-flex justify-content-center gap-3">
             <button

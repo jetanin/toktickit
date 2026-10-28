@@ -129,6 +129,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   // Create User Submit
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (createSubmitting) return;
     setCreateSubmitting(true);
     setCreateError(null);
 
@@ -183,7 +184,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   // Edit User Submit
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingUser || editSubmitting) return;
 
     setEditSubmitting(true);
     setEditError(null);
@@ -230,7 +231,7 @@ const UserManagement: React.FC<Props> = ({ currentUser }) => {
   // Reset Password Submit
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resettingUser) return;
+    if (!resettingUser || resetSubmitting) return;
 
     setResetSubmitting(true);
     setResetError(null);

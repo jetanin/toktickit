@@ -9,8 +9,8 @@ describe('GET /api/tickets', () => {
 
   beforeAll(async () => {
     // Find or ensure two distinct active requesters
-    const requesters = await prisma.developmentRequester.findMany({
-      where: { isActive: true },
+    const requesters = await prisma.user.findMany({
+      where: { role: 'REQUESTER', isActive: true },
       take: 2,
     });
     expect(requesters.length).toBeGreaterThanOrEqual(2);
@@ -45,9 +45,11 @@ describe('GET /api/tickets', () => {
     }
 
     // Create dedicated requester with 0 tickets to ensure parallel test isolation
-    const emptyRequester = await prisma.developmentRequester.create({
+    const emptyRequester = await prisma.user.create({
       data: {
         name: 'Empty Ticket Test User',
+        passwordHash: 'unused-test-password',
+        role: 'REQUESTER',
         email: `empty-test-${Date.now()}-${Math.random()}@example.com`,
         isActive: true,
       },

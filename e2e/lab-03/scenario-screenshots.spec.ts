@@ -110,7 +110,7 @@ test.describe('Lab 3 Scenario Screenshots & Visual Verification', () => {
     await page.getByRole('button', { name: /sign in/i }).click();
 
     // Verify Staff Queue is loaded
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('table')).toBeVisible({ timeout: 15000 });
 
     // 2a. Queue Desktop
@@ -175,7 +175,7 @@ test.describe('Lab 3 Scenario Screenshots & Visual Verification', () => {
     await page.locator('#password').fill('Password123!');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('table')).toBeVisible({ timeout: 15000 });
 
     // Click on the first ticket's View button

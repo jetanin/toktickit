@@ -421,6 +421,195 @@ async function seedTicketsAndAttachments() {
   }
 }
 
+async function seedActionsTaken() {
+  const staff = await prisma.user.findMany({ where: { role: 'IT_STAFF', isActive: true }, orderBy: { id: 'asc' } });
+  if (staff.length === 0) return;
+
+  // 1. Ticket with 1 Action: TKT-2026-0002
+  const tkt2 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-0002' } });
+  if (tkt2) {
+    const existing = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt2.id, description: 'Analyzed Cisco AnyConnect TLS handshake drop logs from user laptop.' },
+    });
+    if (!existing) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt2.id,
+          actionDateTime: new Date('2026-09-18T10:30:00.000Z'),
+          description: 'Analyzed Cisco AnyConnect TLS handshake drop logs from user laptop.',
+          result: 'Identified packet fragmentation issue on Wi-Fi adapter MTU.',
+          performedById: staff[0].id,
+          assigneeId: staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: true,
+          followUpNote: 'Follow up with user to adjust MTU to 1400 and test TLS connection.',
+          attachmentNotes: 'anyconnect_handshake_dump.log',
+        },
+      });
+    }
+  }
+
+  // 2. Ticket with 1 Action: TKT-2026-0006
+  const tkt6 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-0006' } });
+  if (tkt6) {
+    const existing = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt6.id, description: 'Unboxed and installed Dell 27-inch monitor with HDMI cabling at workstation.' },
+    });
+    if (!existing) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt6.id,
+          actionDateTime: new Date('2026-09-18T11:00:00.000Z'),
+          description: 'Unboxed and installed Dell 27-inch monitor with HDMI cabling at workstation.',
+          result: 'Display configured at 2560x1440 60Hz and verified functioning.',
+          performedById: staff[1]?.id ?? staff[0].id,
+          assigneeId: staff[1]?.id ?? staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: false,
+          followUpNote: null,
+          attachmentNotes: null,
+        },
+      });
+    }
+  }
+
+  // 3. Tickets with Multiple Actions: TKT-2026-0003 (2 actions)
+  const tkt3 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-0003' } });
+  if (tkt3) {
+    const act1 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt3.id, description: 'Investigated LEB2 App backend connection pool saturation during peak quiz window.' },
+    });
+    if (!act1) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt3.id,
+          actionDateTime: new Date('2026-09-18T14:20:00.000Z'),
+          description: 'Investigated LEB2 App backend connection pool saturation during peak quiz window.',
+          result: 'Confirmed pool hit 100% active connections causing 504 timeouts.',
+          performedById: staff[1]?.id ?? staff[0].id,
+          assigneeId: staff[1]?.id ?? staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: true,
+          followUpNote: 'Coordinate with database admin to scale connection pool limit to 150.',
+          attachmentNotes: 'pool_saturation_chart.png',
+        },
+      });
+    }
+
+    const act2 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt3.id, description: 'Applied connection pooling patch and restarted staging instances.' },
+    });
+    if (!act2) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt3.id,
+          actionDateTime: new Date('2026-09-18T15:00:00.000Z'),
+          description: 'Applied connection pooling patch and restarted staging instances.',
+          result: 'Response latencies stabilized under simulated 500 concurrent request load.',
+          performedById: staff[0].id,
+          assigneeId: staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: false,
+          followUpNote: null,
+          attachmentNotes: null,
+        },
+      });
+    }
+  }
+
+  // 4. Tickets with Multiple Actions: TKT-2026-0005 (2 actions)
+  const tkt5 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-0005' } });
+  if (tkt5) {
+    const act1 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt5.id, description: 'Inspected network printer print spooler service on print server.' },
+    });
+    if (!act1) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt5.id,
+          actionDateTime: new Date('2026-09-18T09:15:00.000Z'),
+          description: 'Inspected network printer print spooler service on print server.',
+          result: 'Cleared corrupted jobs queue and terminated stuck spoolsv process.',
+          performedById: staff[0].id,
+          assigneeId: staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: true,
+          followUpNote: 'Reinstall clean PCL6 driver if print jobs continue failing.',
+          attachmentNotes: null,
+        },
+      });
+    }
+
+    const act2 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt5.id, description: 'Downloaded and reinstalled clean manufacturer PCL6 driver package on print server.' },
+    });
+    if (!act2) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt5.id,
+          actionDateTime: new Date('2026-09-18T11:30:00.000Z'),
+          description: 'Downloaded and reinstalled clean manufacturer PCL6 driver package on print server.',
+          result: 'Printed 5-page sample duplex test without spooler errors.',
+          performedById: staff[2]?.id ?? staff[0].id,
+          assigneeId: staff[2]?.id ?? staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: false,
+          followUpNote: null,
+          attachmentNotes: 'print_test_log.pdf',
+        },
+      });
+    }
+  }
+
+  // 5. Tickets with Multiple Actions: TKT-2026-0010 (2 actions, includes IN_PROGRESS)
+  const tkt10 = await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-2026-0010' } });
+  if (tkt10) {
+    const act1 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt10.id, description: 'Disassembled laptop chassis and inspected CPU cooling fan bearings.' },
+    });
+    if (!act1) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt10.id,
+          actionDateTime: new Date('2026-09-19T08:30:00.000Z'),
+          description: 'Disassembled laptop chassis and inspected CPU cooling fan bearings.',
+          result: 'Bearing seized with dust accumulation; fan blade chipped.',
+          performedById: staff[1]?.id ?? staff[0].id,
+          assigneeId: staff[1]?.id ?? staff[0].id,
+          status: 'COMPLETED',
+          isFollowUpRequired: true,
+          followUpNote: 'Ordered OEM replacement fan module (Part #FRU-01EF652).',
+          attachmentNotes: 'fan_damage_photo.jpg',
+        },
+      });
+    }
+
+    const act2 = await prisma.actionTaken.findFirst({
+      where: { ticketId: tkt10.id, description: 'Awaiting replacement thermal fan delivery and scheduling bench installation.' },
+    });
+    if (!act2) {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: tkt10.id,
+          actionDateTime: new Date('2026-09-19T14:00:00.000Z'),
+          description: 'Awaiting replacement thermal fan delivery and scheduling bench installation.',
+          result: 'Tracking shows courier arrival scheduled for tomorrow 10:00 AM.',
+          performedById: staff[1]?.id ?? staff[0].id,
+          assigneeId: staff[1]?.id ?? staff[0].id,
+          status: 'IN_PROGRESS',
+          isFollowUpRequired: false,
+          followUpNote: null,
+          attachmentNotes: null,
+        },
+      });
+    }
+  }
+
+  // Tickets TKT-2026-0001, TKT-2026-0004, TKT-2026-0007, TKT-2026-0008,
+  // TKT-2026-0009, TKT-2026-0011, TKT-2026-0012, TKT-2026-0013, TKT-2026-0014,
+  // TKT-2026-0015, TKT-2026-0016 have zero Actions Taken.
+}
+
 async function main() {
   console.log('--- Seeding TokTickIT Database ---');
   await seedCategories();
@@ -428,6 +617,7 @@ async function main() {
   await seedLegacyRequesters();
   await seedUsers();
   await seedTicketsAndAttachments();
+  await seedActionsTaken();
   console.log('--- Seeding Complete Successfully ---');
 }
 

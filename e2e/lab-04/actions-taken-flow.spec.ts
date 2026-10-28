@@ -1,0 +1,30 @@
+﻿import { test, expect } from '@playwright/test';
+import { accounts, addAction, createTicket, login, openTicket } from './helpers';
+
+test('E2E-01: two technicians record/edit work and requester views the same actions read-only', async ({ page }) => {
+  const ticket = await createTicket(page);
+  await login(page, accounts.staff);
+  await openTicket(page, ticket.ticketNumber);
+  await addAction(page, 'Inspected motherboard and memory slots.');
+  await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+  await page.locator('#actionDateTimeInput').fill('2026-10-01T14:30');
+  await page.locator('#actionResultInput').fill('MemTest86 passed with zero errors.');
+  await page.getByRole('button', { name: 'Update Action Taken', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.getByText('MemTest86 passed with zero errors.', { exact: true }).first()).toBeVisible();
+  await login(page, accounts.secondStaff);
+  await openTicket(page, ticket.ticketNumber);
+  await addAction(page, 'Second technician verified the replacement.', true);
+  const actions = (await (await page.request.get(`/api/tickets/${ticket.id}/actions-taken`)).json()).data;
+  expect(actions).toHaveLength(2);
+  expect(new Set(actions.map((action: { performedById: number }) => action.performedById)).size).toBe(2);
+  expect(actions[0].actionDateTime).toBe(new Date('2026-10-01T14:30:00+07:00').toISOString());
+  await login(page, accounts.requester);
+  await openTicket(page, ticket.ticketNumber);
+  await expect(page.getByText('Inspected motherboard and memory slots.', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Second technician verified the replacement.', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Add Action Taken', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+  const denied = await page.request.patch(`/api/staff/tickets/${ticket.id}/actions-taken/${actions[0].id}`, { data: { result: 'Forbidden edit' } });
+  expect(denied.status()).toBe(403);
+});

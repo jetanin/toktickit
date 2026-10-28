@@ -25,7 +25,7 @@ test.describe('Additional Queue & Admin Visual Verification Evidence', () => {
     await page.locator('#password').fill('Password123!');
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('banner').getByText('Sarah Jenkins')).toBeVisible();
 
     // Ensure table loads with tickets
@@ -65,7 +65,7 @@ test.describe('Additional Queue & Admin Visual Verification Evidence', () => {
     await page.locator('#password').fill('Password123!');
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
 
     // Assert error alert and Retry button are visible
     const alert = page.getByRole('alert');
@@ -138,7 +138,7 @@ test.describe('Additional Queue & Admin Visual Verification Evidence', () => {
     await page.locator('#password').fill('Password123!');
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
 
     // 1. Verify Users menu button is completely hidden from the navigation bar
     const usersBtn = page.getByRole('button', { name: 'Users', exact: true });

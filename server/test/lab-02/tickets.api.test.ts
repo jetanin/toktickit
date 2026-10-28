@@ -5,7 +5,7 @@ import app, { prisma } from '../../src/app';
 describe('POST /api/tickets', () => {
   it('should create a ticket and return 201 with generated ticketNumber and status New', async () => {
     // Find an active requester, active category, and active related system
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const category = await prisma.category.findFirst({ where: { isActive: true } });
     const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
 
@@ -36,7 +36,7 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 400 if summary exceeds 100 characters', async () => {
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const category = await prisma.category.findFirst({ where: { isActive: true } });
     const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
 
@@ -56,7 +56,7 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 400 if description exceeds 1000 characters', async () => {
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const category = await prisma.category.findFirst({ where: { isActive: true } });
     const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
 
@@ -76,7 +76,7 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 400 if relatedSystemId is missing', async () => {
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const category = await prisma.category.findFirst({ where: { isActive: true } });
 
     const res = await request(app)
@@ -94,7 +94,7 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 400 if categoryId is missing', async () => {
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
 
     const res = await request(app)
@@ -112,7 +112,7 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 400 if requestedPriority is invalid', async () => {
-    const requester = await prisma.developmentRequester.findFirst({ where: { isActive: true } });
+    const requester = await prisma.user.findFirst({ where: { role: 'REQUESTER', isActive: true } });
     const category = await prisma.category.findFirst({ where: { isActive: true } });
     const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
 
@@ -161,8 +161,8 @@ describe('POST /api/tickets', () => {
   });
 
   it('should return 403 if requester is inactive', async () => {
-    const inactiveRequester = await prisma.developmentRequester.findFirst({
-      where: { isActive: false },
+    const inactiveRequester = await prisma.user.findFirst({
+      where: { role: 'REQUESTER', isActive: false },
     });
 
     if (inactiveRequester) {

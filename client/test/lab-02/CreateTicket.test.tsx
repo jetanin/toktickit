@@ -238,5 +238,46 @@ describe('CreateTicket Screen (All 6 States)', () => {
       expect(screen.getByText(/only jpg, png, webp, and pdf/i)).toBeInTheDocument();
     });
   });
+
+  // State 7: Double Submission Prevention
+  it('State 7 (Double Submission Prevention): prevents duplicate ticket creation when submit button is clicked multiple times rapidly', async () => {
+    let postCalls = 0;
+    global.fetch = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : (input as any).url || '';
+      if (url.includes('/api/categories')) {
+        return Promise.resolve({ ok: true, json: async () => [{ id: 1, name: 'Hardware' }] });
+      }
+      if (url.includes('/api/related-systems')) {
+        return Promise.resolve({ ok: true, json: async () => [{ id: 10, name: 'Corporate Laptop' }] });
+      }
+      if (url.includes('/api/tickets') && init?.method === 'POST') {
+        postCalls++;
+        return new Promise((resolve) =>
+          setTimeout(() => resolve({ ok: true, json: async () => ({ id: 888, ticketNumber: 'TKT-2026-888888' }) }), 50)
+        );
+      }
+      return Promise.reject(new Error('Unknown'));
+    });
+
+    render(<CreateTicket requester={mockRequester} onCancel={() => {}} onCreated={() => {}} />);
+    await waitFor(() => screen.getByText('Hardware'));
+
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/related system/i), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: 'Double click test summary' } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Double click test description' } });
+
+    const submitBtn = screen.getByRole('button', { name: /submit ticket/i });
+    // Fire two rapid clicks
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/created successfully/i)).toBeInTheDocument();
+    });
+
+    // Proves only 1 POST request was dispatched
+    expect(postCalls).toBe(1);
+  });
 });
 

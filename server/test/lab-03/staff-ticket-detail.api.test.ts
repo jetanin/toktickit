@@ -398,6 +398,16 @@ describe('Lab 3: IT Staff Ticket Detail & Operations Suite', () => {
         },
       });
       ticketId = t.id;
+
+      // Pre-seed an Action Taken to satisfy the universal Resolution Gate
+      await prisma.actionTaken.create({
+        data: {
+          ticketId,
+          description: 'Diagnosed keyboard hardware fault',
+          result: 'Key switch replacement planned',
+          performedById: staff1.id,
+        },
+      });
     });
 
     it('advances status from Open to In Progress', async () => {
@@ -417,7 +427,7 @@ describe('Lab 3: IT Staff Ticket Detail & Operations Suite', () => {
         .send({ status: 'Resolved' }); // missing resolutionSummary
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/Resolution summary is required/i);
+      expect(res.body.error).toMatch(/resolution summary/i);
     });
 
     it('rejects transitioning to Resolved with whitespace-only resolutionSummary', async () => {
@@ -427,7 +437,7 @@ describe('Lab 3: IT Staff Ticket Detail & Operations Suite', () => {
         .send({ status: 'Resolved', resolutionSummary: '   ' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/Resolution summary is required/i);
+      expect(res.body.error).toMatch(/resolution summary/i);
     });
 
     it('successfully transitions from In Progress to Resolved with valid resolutionSummary (API-21)', async () => {

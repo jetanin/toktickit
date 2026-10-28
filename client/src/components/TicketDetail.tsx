@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { Requester } from '../types';
+import type { Requester, ActionTakenItem } from '../types';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface AttachmentItem {
   id: number;
@@ -35,6 +36,8 @@ interface InternalNoteItem {
   createdAt: string;
 }
 
+export type { ActionTakenItem } from '../types';
+
 interface TicketDetailData {
   id: number;
   ticketNumber: string;
@@ -47,6 +50,7 @@ interface TicketDetailData {
   ticketOwnerId?: number | null;
   ticketOwner?: { id: number; name: string; email: string; role: string } | null;
   requesterResolutionPending?: boolean;
+  version?: number;
   createdAt: string;
   updatedAt: string;
   category: { id: number; name: string };
@@ -103,6 +107,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
+  // Concurrency conflict banner state (BR-12 / UI Spec 3.5 C)
+  const [concurrencyConflict, setConcurrencyConflict] = useState(false);
+
+  // Staff Resolution Gate modal state (BR-10 / UI Spec 3.5 B)
+  const [showStaffResolutionModal, setShowStaffResolutionModal] = useState(false);
+
   // Communication tabs state
   type TabType = 'COMMENTS' | 'INTERNAL_NOTES' | 'ATTACHMENTS';
   const [activeTab, setActiveTab] = useState<TabType>('COMMENTS');
@@ -136,9 +146,29 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
 
+  // Actions Taken state
+  const [actionsTaken, setActionsTaken] = useState<ActionTakenItem[]>([]);
+  const [loadingActions, setLoadingActions] = useState(false);
+
+  // Create / Edit Action Modal state
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [editingAction, setEditingAction] = useState<ActionTakenItem | null>(null);
+  const [actionDateTime, setActionDateTime] = useState('');
+  const [actionDescription, setActionDescription] = useState('');
+  const [actionResult, setActionResult] = useState('');
+  const [actionAssigneeId, setActionAssigneeId] = useState<number | ''>('');
+  const [actionStatus, setActionStatus] = useState<string>('Completed');
+  const [actionFollowUpRequired, setActionFollowUpRequired] = useState(false);
+  const [actionFollowUpNote, setActionFollowUpNote] = useState('');
+  const [actionAttachmentNotes, setActionAttachmentNotes] = useState('');
+  const [actionFormError, setActionFormError] = useState<string | null>(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  useDialogFocus(showActionModal || showStaffResolutionModal || showResolveModal || removeTargetId !== null);
+
   useEffect(() => {
     fetchTicketDetail();
     fetchComments();
+    fetchActionsTaken();
     if (isStaffOrAdmin) {
       fetchAssignees();
       fetchInternalNotes();
@@ -146,8 +176,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId, isStaffOrAdmin]);
 
-  const fetchTicketDetail = async () => {
-    setLoading(true);
+  const fetchTicketDetail = async (preserveDraft = false) => {
+    if (!preserveDraft) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/tickets/${ticketId}`);
@@ -159,11 +189,10 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       const data = await res.json();
       setTicket(data);
       setTargetStatus((prev) => (prev && prev !== data.currentStatus ? prev : data.currentStatus));
-      if (data.resolutionSummary) {
+      if (!preserveDraft && data.resolutionSummary) {
         setResolutionSummaryInput(data.resolutionSummary);
       }
     } catch (err: any) {
-      console.error(err);
       setError(err.message || 'Unable to load ticket details.');
     } finally {
       setLoading(false);
@@ -179,8 +208,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setAssignees(data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching assignees:', err);
+    } catch (_err) {
+      // Assignee dropdown will fail safe to empty list
     }
   };
 
@@ -195,8 +224,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setComments([]);
         }
       }
-    } catch (err) {
-      console.error('Error fetching comments:', err);
+    } catch (_err) {
+      setComments([]);
     }
   };
 
@@ -210,21 +239,225 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           setInternalNotes(data);
         }
       }
-    } catch (err) {
-      console.error('Error fetching internal notes:', err);
+    } catch (_err) {
+      setInternalNotes([]);
+    }
+  };
+
+  const fetchActionsTaken = async () => {
+    setLoadingActions(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/actions-taken`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setActionsTaken(data);
+        } else if (data && Array.isArray(data.data)) {
+          setActionsTaken(data.data);
+        } else {
+          setActionsTaken([]);
+        }
+      } else {
+        setActionsTaken([]);
+      }
+    } catch (_err) {
+      setActionsTaken([]);
+    } finally {
+      setLoadingActions(false);
+    }
+  };
+
+  const openCreateActionModal = () => {
+    setEditingAction(null);
+    const now = new Date();
+    const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setActionDateTime(localIso);
+    setActionDescription('');
+    setActionResult('');
+    setActionAssigneeId(currentUser?.id || (assignees[0]?.id ?? ''));
+    setActionStatus('Completed');
+    setActionFollowUpRequired(false);
+    setActionFollowUpNote('');
+    setActionAttachmentNotes('');
+    setActionFormError(null);
+    setShowActionModal(true);
+  };
+
+  const openEditActionModal = (action: ActionTakenItem) => {
+    setEditingAction(action);
+    const d = new Date(action.actionDateTime);
+    const localIso = !isNaN(d.getTime())
+      ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+      : '';
+    setActionDateTime(localIso);
+    setActionDescription(action.description || '');
+    setActionResult(action.result || '');
+    setActionAssigneeId(action.assigneeId || '');
+    setActionStatus(action.status || 'Completed');
+    setActionFollowUpRequired(Boolean(action.isFollowUpRequired));
+    setActionFollowUpNote(action.followUpNote || '');
+    setActionAttachmentNotes(action.attachmentNotes || '');
+    setActionFormError(null);
+    setShowActionModal(true);
+  };
+
+  const closeActionModal = () => {
+    if (actionSubmitting) return;
+    setShowActionModal(false);
+    setEditingAction(null);
+    setActionFormError(null);
+  };
+
+  const handleSaveAction = async () => {
+    if (actionSubmitting) return;
+    setActionFormError(null);
+
+    if (!actionDateTime) {
+      setActionFormError('Action date and time is required.');
+      return;
+    }
+
+    if (!actionAssigneeId) {
+      setActionFormError('Assignee is required.');
+      return;
+    }
+
+    if (!actionDescription.trim()) {
+      setActionFormError('Action description is required (1-1000 characters).');
+      return;
+    }
+    if (actionDescription.trim().length > 1000) {
+      setActionFormError('Action description must not exceed 1000 characters.');
+      return;
+    }
+
+    if (!actionResult.trim()) {
+      setActionFormError('Action result is required (1-1000 characters).');
+      return;
+    }
+    if (actionResult.trim().length > 1000) {
+      setActionFormError('Action result must not exceed 1000 characters.');
+      return;
+    }
+
+    if (actionFollowUpRequired) {
+      if (!actionFollowUpNote.trim()) {
+        setActionFormError('Follow-up note is required when follow-up is requested.');
+        return;
+      }
+      if (actionFollowUpNote.trim().length > 1000) {
+        setActionFormError('Follow-up note must not exceed 1000 characters.');
+        return;
+      }
+    }
+
+    if (actionAttachmentNotes.trim().length > 500) {
+      setActionFormError('Attachment notes must not exceed 500 characters.');
+      return;
+    }
+
+    setActionSubmitting(true);
+    try {
+      if (editingAction) {
+        const payload: any = {
+          version: ticket?.version,
+          actionDateTime: new Date(actionDateTime).toISOString(),
+          description: actionDescription.trim(),
+          result: actionResult.trim(),
+          status: actionStatus,
+          isFollowUpRequired: actionFollowUpRequired,
+          followUpNote: actionFollowUpRequired ? actionFollowUpNote.trim() : null,
+          attachmentNotes: actionAttachmentNotes.trim() ? actionAttachmentNotes.trim() : null,
+        };
+        if (actionAssigneeId) {
+          payload.assigneeId = Number(actionAssigneeId);
+        } else {
+          payload.assigneeId = null;
+        }
+
+        const res = await fetch(`/api/staff/tickets/${ticketId}/actions-taken/${editingAction.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 409) {
+          setConcurrencyConflict(true);
+          await fetchTicketDetail(true);
+          return;
+        }
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error || 'Failed to update action taken.');
+        }
+      } else {
+        const payload: any = {
+          version: ticket?.version,
+          description: actionDescription.trim(),
+          result: actionResult.trim(),
+          status: actionStatus || 'Completed',
+          isFollowUpRequired: actionFollowUpRequired,
+          followUpNote: actionFollowUpRequired ? actionFollowUpNote.trim() : null,
+          attachmentNotes: actionAttachmentNotes.trim() ? actionAttachmentNotes.trim() : null,
+        };
+        if (actionDateTime) {
+          payload.actionDateTime = new Date(actionDateTime).toISOString();
+        }
+        if (actionAssigneeId) {
+          payload.assigneeId = Number(actionAssigneeId);
+        }
+
+        const res = await fetch(`/api/staff/tickets/${ticketId}/actions-taken`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 409) {
+          setConcurrencyConflict(true);
+          await fetchTicketDetail(true);
+          return;
+        }
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error || 'Failed to record action taken.');
+        }
+      }
+
+      setShowActionModal(false);
+      setEditingAction(null);
+      await fetchActionsTaken();
+      await fetchTicketDetail(true);
+    } catch (err: any) {
+      setActionFormError(err.message || 'An error occurred while saving the action taken.');
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
   // Claim or change owner
   const handleAssignOwner = async (ownerId: number | null) => {
+    if (assigningOwner) return;
     setAssigningOwner(true);
     setOwnerError(null);
     try {
+      const payload: any = { ticketOwnerId: ownerId };
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
       const res = await fetch(`/api/staff/tickets/${ticketId}/owner`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketOwnerId: ownerId }),
+        body: JSON.stringify(payload),
       });
+
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        await fetchTicketDetail();
+        return;
+      }
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -241,14 +474,25 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
   // Update IT Priority
   const handlePriorityChange = async (newPriority: string) => {
+    if (updatingPriority) return;
     setUpdatingPriority(true);
     setPriorityError(null);
     try {
+      const payload: any = { itPriority: newPriority };
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
       const res = await fetch(`/api/staff/tickets/${ticketId}/priority`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itPriority: newPriority }),
+        body: JSON.stringify(payload),
       });
+
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        await fetchTicketDetail();
+        return;
+      }
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -266,6 +510,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Update Ticket Status
   const handleStatusSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (updatingStatus) return;
     if (!targetStatus || targetStatus === ticket?.currentStatus) return;
 
     if (targetStatus === 'Resolved' && !resolutionSummaryInput.trim()) {
@@ -280,6 +525,9 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       if (targetStatus === 'Resolved') {
         payload.resolutionSummary = resolutionSummaryInput.trim();
       }
+      if (ticket?.version !== undefined) {
+        payload.version = ticket.version;
+      }
 
       const res = await fetch(`/api/staff/tickets/${ticketId}/status`, {
         method: 'PATCH',
@@ -287,11 +535,18 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        setConcurrencyConflict(true);
+        await fetchTicketDetail(true);
+        return;
+      }
+
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || 'Failed to advance ticket status.');
       }
 
+      setShowStaffResolutionModal(false);
       await fetchTicketDetail();
     } catch (err: any) {
       setStatusError(err.message || 'Failed to advance ticket status.');
@@ -303,6 +558,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Add Public Comment
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (commentSubmitting) return;
     const trimmed = newComment.trim();
     if (!trimmed) {
       setCommentError('Comment cannot be empty or whitespace only.');
@@ -340,6 +596,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   // Add Internal Note
   const handleInternalNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (noteSubmitting) return;
     const trimmed = newInternalNote.trim();
     if (!trimmed) {
       setNoteError('Internal note cannot be empty or whitespace only.');
@@ -376,6 +633,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
   // Requester: "Problem Appears Resolved"
   const handleConfirmResolved = async () => {
+    if (resolving) return;
     setResolving(true);
     setResolveError(null);
     try {
@@ -478,8 +736,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
+    } catch (err: any) {
+      setUploadError(err.message || 'Unable to download attachment.');
     }
   };
 
@@ -583,6 +841,23 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     return { backgroundColor: '#DEEBFF', color: '#0747A6', border: '1px solid #B3D4FF' };
   };
 
+  const getActionStatusBadgeStyle = (status: string | null) => {
+    const lower = (status || '').toLowerCase();
+    if (lower === 'pending') {
+      return { backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1' };
+    }
+    if (lower === 'in progress') {
+      return { backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' };
+    }
+    if (lower === 'completed') {
+      return { backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' };
+    }
+    if (lower === 'cancelled') {
+      return { backgroundColor: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' };
+    }
+    return { backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1' };
+  };
+
   const permittedNextStatuses = PERMITTED_STATUS_TRANSITIONS[ticket.currentStatus] || [];
 
   return (
@@ -637,6 +912,32 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
             </div>
 
             <div className="card-body p-4">
+              {/* Optimistic Concurrency Conflict Banner per ui-spec.md Section 3.5 C */}
+              {concurrencyConflict && (
+                <div
+                  className="alert alert-warning alert-dismissible fade show d-flex align-items-center justify-content-between mb-4 p-3 shadow-sm rounded border-0"
+                  role="alert"
+                  data-testid="concurrency-conflict-banner"
+                  style={{ backgroundColor: '#FFF3CD', color: '#664D03', borderLeft: '5px solid #FFC107' }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                    <div>
+                      <strong>Ticket Modified by Another User</strong>
+                      <div className="small mt-1">
+                        This ticket was updated by another team member while you were editing. The latest information has been loaded to prevent overwriting their work.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={() => setConcurrencyConflict(false)}
+                  />
+                </div>
+              )}
+
               {/* Requester Resolution Pending Banner */}
               {ticket.requesterResolutionPending && (
                 <div
@@ -806,8 +1107,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                             style={{ minWidth: '180px' }}
                             value={targetStatus}
                             onChange={(e) => {
-                              setTargetStatus(e.target.value);
+                              const val = e.target.value;
+                              setTargetStatus(val);
                               if (statusError) setStatusError(null);
+                              if (val === 'Resolved' && ticket.currentStatus !== 'Resolved') {
+                                setShowStaffResolutionModal(true);
+                              }
                             }}
                             disabled={updatingStatus || permittedNextStatuses.length === 0}
                           >
@@ -823,7 +1128,12 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                             type="button"
                             className="btn btn-sm text-white px-3 fw-semibold text-nowrap"
                             style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
-                            onClick={() => handleStatusSubmit()}
+                            onClick={() => {
+                              if (targetStatus === 'Resolved' && ticket.currentStatus !== 'Resolved') {
+                                setShowStaffResolutionModal(true);
+                              }
+                              handleStatusSubmit();
+                            }}
                             disabled={updatingStatus || !targetStatus || targetStatus === ticket.currentStatus}
                           >
                             {updatingStatus ? 'Updating...' : 'Save Status'}
@@ -832,14 +1142,15 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                       </div>
                     </div>
 
-                    {/* Resolution summary prompt if target status is Resolved */}
-                    {targetStatus === 'Resolved' && targetStatus !== ticket.currentStatus && (
+                    {/* Resolution summary prompt if target status is Resolved and modal is closed */}
+                    {targetStatus === 'Resolved' && targetStatus !== ticket.currentStatus && !showStaffResolutionModal && (
                       <div className="mt-3 p-3 rounded bg-light border">
                         <label htmlFor="resolutionSummaryInput" className="form-label small fw-semibold text-dark mb-1">
                           Resolution Summary <span className="text-danger">*</span>
                         </label>
                         <textarea
                           id="resolutionSummaryInput"
+                          aria-label="Resolution Summary"
                           className="form-control form-control-sm mb-2"
                           rows={2}
                           placeholder="Describe how the problem was resolved (visible to requester)..."
@@ -853,10 +1164,220 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                       </div>
                     )}
 
-                    {statusError && <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>}
+                    {statusError && !showStaffResolutionModal && (
+                      <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>
+                    )}
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Actions Taken Section per ui-spec.md Section 3.4 */}
+          <div
+            id="actions-taken-section"
+            className="card shadow-sm border-0 mt-4"
+            style={{ backgroundColor: '#FFFFFF' }}
+            data-testid="actions-taken-section"
+          >
+            <div className="card-header bg-white border-bottom py-3 px-4 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+              <div>
+                <h2 className="h6 fw-bold mb-0 text-dark" style={{ letterSpacing: '0.02em' }}>
+                  ACTIONS TAKEN ({actionsTaken.length})
+                </h2>
+                <span className="small text-muted">
+                  Work performed, technical interventions, and follow-up activities
+                </span>
+              </div>
+              {isStaffOrAdmin && (
+                <button
+                  type="button"
+                  className="btn btn-sm text-white fw-semibold px-3 py-1"
+                  style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                  onClick={openCreateActionModal}
+                >
+                  + Add Action Taken
+                </button>
+              )}
+            </div>
+
+            <div className="card-body p-0">
+              {loadingActions ? (
+                <div className="text-center py-4 text-muted small">Loading actions taken...</div>
+              ) : actionsTaken.length === 0 ? (
+                <div className="p-4 text-center text-muted small">
+                  No actions taken recorded yet for this ticket.
+                </div>
+              ) : (
+                <>
+                  {/* Desktop View Table (>= 768px) */}
+                  <div className="table-responsive d-none d-md-block">
+                    <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+                      <thead className="table-light text-muted small">
+                        <tr>
+                          <th style={{ width: '16%' }}>DATE / TIME</th>
+                          <th style={{ width: '38%' }}>DESCRIPTION &amp; RESULT</th>
+                          <th style={{ width: '22%' }}>PERFORMED BY &amp; ASSIGNEE</th>
+                          <th style={{ width: '14%' }}>STATUS &amp; FOLLOW-UP</th>
+                          {isStaffOrAdmin && <th style={{ width: '10%' }} className="text-end">ACTIONS</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {actionsTaken.map((a) => (
+                          <tr key={a.id} data-testid={`action-row-${a.id}`}>
+                            <td className="align-top">
+                              <span className="small text-dark fw-medium d-block">
+                                {new Date(a.actionDateTime).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </td>
+                            <td className="align-top">
+                              <div className="mb-1">
+                                <span className="text-muted fw-semibold me-1">Description:</span>
+                                <span className="text-dark">{a.description}</span>
+                              </div>
+                              <div className="mb-1">
+                                <span className="text-muted fw-semibold me-1">Result:</span>
+                                <span className="text-dark">{a.result}</span>
+                              </div>
+                              {a.attachmentNotes && (
+                                <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
+                                  <span className="fw-semibold">Attachment Notes:</span> {a.attachmentNotes}
+                                </div>
+                              )}
+                            </td>
+                            <td className="align-top">
+                              <div className="d-flex flex-column gap-1">
+                                <span
+                                  className="badge bg-light text-dark border text-truncate text-start"
+                                  style={{ fontSize: '0.75rem', maxWidth: '190px' }}
+                                >
+                                  By: {a.performedBy?.name || 'Unknown'}
+                                </span>
+                                {a.assignee && (
+                                  <span
+                                    className="badge bg-light text-dark border text-truncate text-start"
+                                    style={{ fontSize: '0.75rem', maxWidth: '190px' }}
+                                  >
+                                    Assigned: {a.assignee.name}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="align-top">
+                              <div className="d-flex flex-column gap-1 align-items-start">
+                                <span className="badge fw-medium px-2 py-1" style={getActionStatusBadgeStyle(a.status)}>
+                                  {a.status}
+                                </span>
+                                {a.isFollowUpRequired ? (
+                                  <div>
+                                    <span
+                                      className="badge fw-medium px-2 py-1"
+                                      style={{ backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}
+                                    >
+                                      Follow-Up Req.
+                                    </span>
+                                    {a.followUpNote && (
+                                      <div className="small text-danger mt-1" style={{ fontSize: '0.75rem', maxWidth: '160px' }}>
+                                        {a.followUpNote}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted small">—</span>
+                                )}
+                              </div>
+                            </td>
+                            {isStaffOrAdmin && (
+                              <td className="align-top text-end">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-secondary btn-sm py-1 px-2"
+                                  style={{ fontSize: '0.78rem' }}
+                                  onClick={() => openEditActionModal(a)}
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile View Cards (< 768px) */}
+                  <div className="d-block d-md-none p-3">
+                    <div className="d-flex flex-column gap-3">
+                      {actionsTaken.map((a) => (
+                        <div
+                          key={a.id}
+                          className="p-3 rounded border"
+                          style={{ backgroundColor: '#F8FAF9', borderColor: '#E2E8E5' }}
+                          data-testid={`action-card-${a.id}`}
+                        >
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <span className="small text-muted fw-medium">
+                              {new Date(a.actionDateTime).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            <div className="d-flex gap-1 align-items-center">
+                              <span className="badge fw-medium px-2 py-1" style={getActionStatusBadgeStyle(a.status)}>
+                                {a.status}
+                              </span>
+                              {a.isFollowUpRequired && (
+                                <span
+                                  className="badge fw-medium px-2 py-1"
+                                  style={{ backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}
+                                >
+                                  Follow-Up Req.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="small mb-2">
+                            <div><strong>Description:</strong> {a.description}</div>
+                            <div className="mt-1"><strong>Result:</strong> {a.result}</div>
+                            {a.attachmentNotes && (
+                              <div className="mt-1 text-muted"><strong>Attachment Notes:</strong> {a.attachmentNotes}</div>
+                            )}
+                            {a.isFollowUpRequired && a.followUpNote && (
+                              <div className="mt-1 text-danger"><strong>Follow-Up:</strong> {a.followUpNote}</div>
+                            )}
+                          </div>
+
+                          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 border-top">
+                            <div className="small text-muted">
+                              <span>By: {a.performedBy?.name || 'Unknown'}</span>
+                              {a.assignee && <span className="ms-2">| Assigned: {a.assignee.name}</span>}
+                            </div>
+                            {isStaffOrAdmin && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm px-3 py-1"
+                                style={{ minHeight: '44px' }}
+                                onClick={() => openEditActionModal(a)}
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -865,8 +1386,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
             {/* Tab Navigation Header (IT Staff & Administrator) */}
             {isStaffOrAdmin && (
               <div className="card-header bg-white border-bottom p-0">
-                <ul className="nav nav-tabs border-0 px-3 pt-2" role="tablist">
-                  <li className="nav-item" role="presentation">
+                <ul className="nav nav-tabs border-0 px-3 pt-2" aria-label="Ticket communication">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -882,7 +1403,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   </li>
 
                   {/* Internal Notes Tab: ONLY rendered for IT Staff and Administrator per BR-04, BR-20, AC-04 */}
-                  <li className="nav-item" role="presentation">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -898,7 +1419,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   </li>
 
                   {/* Attachments Tab for Tablet/Mobile or unified view */}
-                  <li className="nav-item" role="presentation">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -913,14 +1434,13 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                     </button>
                   </li>
 
-                  {/* Service Actions Tab: Disabled placeholder for Lab 4 per ui-spec.md Section 5.4 */}
-                  <li className="nav-item" role="presentation">
+                  {/* Service Actions Tab: Disabled placeholder preserved for Lab 3 regression compatibility */}
+                  <li className="nav-item" >
                     <button
                       type="button"
-                      className="nav-link border-0 text-muted px-3 py-2 disabled"
+                      className="nav-link border-0 fw-semibold px-3 py-2 text-muted"
                       disabled
-                      title="Actions Taken by IT Staff - Deferred to Lab 4"
-                      style={{ cursor: 'not-allowed', opacity: 0.5 }}
+                      aria-disabled="true"
                     >
                       🔧 Service Actions (0)
                     </button>
@@ -1404,6 +1924,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
           role="dialog"
           aria-modal="true"
+          aria-label="Remove Attachment"
         >
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow">
@@ -1494,6 +2015,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
           role="dialog"
           aria-modal="true"
+          aria-label="Problem Appears Resolved"
         >
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow">
@@ -1536,6 +2058,335 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   disabled={resolving}
                 >
                   {resolving ? 'Submitting...' : 'Yes, Problem Resolved'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Resolution Gate Modal Dialog per ui-spec.md Section 3.5 B */}
+      {showStaffResolutionModal && (
+        <div
+          className="modal show d-block"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="resolutionGateModalTitle"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1055 }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content shadow border-0">
+              <div className="modal-header border-bottom py-3 px-4">
+                <h5 className="modal-title fw-bold text-dark" id="resolutionGateModalTitle">
+                  Resolve Ticket {ticket.ticketNumber}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => {
+                    setShowStaffResolutionModal(false);
+                    setTargetStatus(ticket.currentStatus);
+                  }}
+                  disabled={updatingStatus}
+                />
+              </div>
+              <div className="modal-body p-4">
+                {actionsTaken.length === 0 ? (
+                  <div className="alert alert-warning py-3 mb-3 border-0" role="alert" data-testid="resolution-gate-warning">
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                      <strong>Cannot Resolve Ticket</strong>
+                    </div>
+                    <p className="small mb-0 text-dark">
+                      At least one Action Taken must be recorded before this ticket can be resolved. Please close this dialog, add an Action Taken detailing the work performed, and try again.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div>
+                  <label htmlFor="modalResolutionSummaryInput" className="form-label small fw-semibold text-dark mb-1">
+                    Resolution Summary <span className="text-danger">*</span>
+                  </label>
+                  <textarea
+                    id="modalResolutionSummaryInput"
+                    aria-label="Resolution Summary"
+                    className="form-control mb-1"
+                    rows={3}
+                    placeholder="Describe how the problem was resolved (visible to requester)..."
+                    value={resolutionSummaryInput}
+                    onChange={(e) => {
+                      setResolutionSummaryInput(e.target.value);
+                      if (statusError) setStatusError(null);
+                    }}
+                    maxLength={1000}
+                  />
+                  <div className="d-flex justify-content-between text-muted small" style={{ fontSize: '0.75rem' }}>
+                    <span>A clear technical resolution summary is required (1–1,000 characters).</span>
+                    <span>{resolutionSummaryInput.length}/1000 characters</span>
+                  </div>
+                  {statusError && <div className="alert alert-danger py-2 small mt-2 mb-0">{statusError}</div>}
+                </div>
+              </div>
+              <div className="modal-footer border-top py-2 px-4">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm px-3"
+                  onClick={() => {
+                    setShowStaffResolutionModal(false);
+                    setTargetStatus(ticket.currentStatus);
+                  }}
+                  disabled={updatingStatus}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm text-white px-3 fw-semibold"
+                  style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                  onClick={() => handleStatusSubmit()}
+                  disabled={actionsTaken.length === 0 || !resolutionSummaryInput.trim() || updatingStatus}
+                >
+                  {updatingStatus ? 'Resolving...' : 'Confirm Resolution'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Action Taken Modal Dialog per ui-spec.md Section 3.4 B */}
+      {showActionModal && (
+        <div
+          className="modal show d-block"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="actionModalTitle"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1055 }}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content shadow">
+              <div className="modal-header border-bottom py-3 px-4">
+                <h5 className="modal-title fw-bold text-dark" id="actionModalTitle">
+                  {editingAction ? 'Edit Action Taken' : 'Record Action Taken'}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={closeActionModal}
+                  disabled={actionSubmitting}
+                />
+              </div>
+
+              <div className="modal-body p-4">
+                {actionFormError && (
+                  <div className="alert alert-danger py-2 small mb-3" role="alert">
+                    {actionFormError}
+                  </div>
+                )}
+
+                <div className="row g-3">
+                  {/* Action Date & Time */}
+                  <div className="col-12 col-sm-6">
+                    <label htmlFor="actionDateTimeInput" className="form-label small fw-semibold text-muted mb-1">
+                      Action Date &amp; Time <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="actionDateTimeInput"
+                      className="form-control form-control-sm"
+                      value={actionDateTime}
+                      onChange={(e) => setActionDateTime(e.target.value)}
+                      disabled={actionSubmitting}
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-12 col-sm-6">
+                    <label htmlFor="actionStatusSelect" className="form-label small fw-semibold text-muted mb-1">
+                      Action Status <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      id="actionStatusSelect"
+                      aria-label="Action Status"
+                      className="form-select form-select-sm"
+                      value={actionStatus}
+                      onChange={(e) => setActionStatus(e.target.value)}
+                      disabled={actionSubmitting}
+                    >
+                      <option value="Completed">Completed</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
+                  {/* Performed By (Locked) */}
+                  <div className="col-12 col-sm-6">
+                    <label htmlFor="actionPerformedByInput" className="form-label small fw-semibold text-muted mb-1">
+                      Performed By (Auto-captured)
+                    </label>
+                    <input
+                      id="actionPerformedByInput"
+                      aria-label="Performed By (Auto-captured)"
+                      type="text"
+                      className="form-control form-control-sm bg-light"
+                      value={
+                        editingAction
+                          ? `${editingAction.performedBy?.name || 'Unknown'} (${editingAction.performedBy?.role === 'ADMINISTRATOR' ? 'Admin' : 'IT Staff'})`
+                          : `${currentUser?.name || 'Current User'} (${currentUser?.role === 'ADMINISTRATOR' ? 'Admin' : 'IT Staff'})`
+                      }
+                      disabled
+                      readOnly
+                    />
+                  </div>
+
+                  {/* Assignee */}
+                  <div className="col-12 col-sm-6">
+                    <label htmlFor="actionAssigneeSelect" className="form-label small fw-semibold text-muted mb-1">
+                      Assignee (Responsible Technician) <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      id="actionAssigneeSelect"
+                      aria-label="Assignee"
+                      className="form-select form-select-sm"
+                      value={actionAssigneeId}
+                      onChange={(e) => setActionAssigneeId(e.target.value ? Number(e.target.value) : '')}
+                      disabled={actionSubmitting}
+                    >
+                      <option value="">(Select Assignee)</option>
+                      {assignees.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.role === 'ADMINISTRATOR' ? 'Admin' : 'IT Staff'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Action Description */}
+                  <div className="col-12">
+                    <label htmlFor="actionDescriptionInput" className="form-label small fw-semibold text-muted mb-1">
+                      Action Description <span className="text-danger">*</span> (What technical work was done)
+                    </label>
+                    <textarea
+                      id="actionDescriptionInput"
+                      className="form-control form-control-sm"
+                      rows={3}
+                      placeholder="Describe the work performed..."
+                      value={actionDescription}
+                      onChange={(e) => setActionDescription(e.target.value)}
+                      maxLength={1000}
+                      disabled={actionSubmitting}
+                    />
+                    <div className="form-text small text-muted text-end" style={{ fontSize: '0.72rem' }}>
+                      {actionDescription.length}/1000 characters
+                    </div>
+                  </div>
+
+                  {/* Result */}
+                  <div className="col-12">
+                    <label htmlFor="actionResultInput" className="form-label small fw-semibold text-muted mb-1">
+                      Result <span className="text-danger">*</span> (Outcome or observed diagnostic behavior)
+                    </label>
+                    <textarea
+                      id="actionResultInput"
+                      className="form-control form-control-sm"
+                      rows={3}
+                      placeholder="Describe the result or outcome..."
+                      value={actionResult}
+                      onChange={(e) => setActionResult(e.target.value)}
+                      maxLength={1000}
+                      disabled={actionSubmitting}
+                    />
+                    <div className="form-text small text-muted text-end" style={{ fontSize: '0.72rem' }}>
+                      {actionResult.length}/1000 characters
+                    </div>
+                  </div>
+
+                  {/* Follow-Up Required Toggle */}
+                  <div className="col-12">
+                    <div className="form-check form-switch mt-1">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="actionFollowUpCheck"
+                        checked={actionFollowUpRequired}
+                        onChange={(e) => {
+                          setActionFollowUpRequired(e.target.checked);
+                          if (!e.target.checked) {
+                            setActionFollowUpNote('');
+                          }
+                        }}
+                        disabled={actionSubmitting}
+                      />
+                      <label className="form-check-label small fw-semibold text-dark" htmlFor="actionFollowUpCheck">
+                        Follow-Up Required
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Follow-Up Note (Only visible and mandatory when follow-up is checked) */}
+                  {actionFollowUpRequired && (
+                    <div className="col-12">
+                      <label htmlFor="actionFollowUpNoteInput" className="form-label small fw-semibold text-danger mb-1">
+                        Follow-Up Note <span className="text-danger">*</span> (Mandatory when follow-up is checked)
+                      </label>
+                      <textarea
+                        id="actionFollowUpNoteInput"
+                        className="form-control form-control-sm border-danger"
+                        rows={2}
+                        placeholder="Enter required follow-up details..."
+                        value={actionFollowUpNote}
+                        onChange={(e) => setActionFollowUpNote(e.target.value)}
+                        maxLength={1000}
+                        disabled={actionSubmitting}
+                      />
+                      <div className="form-text small text-muted text-end" style={{ fontSize: '0.72rem' }}>
+                        {actionFollowUpNote.length}/1000 characters
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attachment Notes (Optional) */}
+                  <div className="col-12">
+                    <label htmlFor="actionAttachmentNotesInput" className="form-label small fw-semibold text-muted mb-1">
+                      Attachment / Evidence Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="actionAttachmentNotesInput"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. See diagnostic log in attachments tab"
+                      value={actionAttachmentNotes}
+                      onChange={(e) => setActionAttachmentNotes(e.target.value)}
+                      maxLength={500}
+                      disabled={actionSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer border-top py-2 px-4">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm px-3"
+                  onClick={closeActionModal}
+                  disabled={actionSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm text-white fw-semibold px-4"
+                  style={{ backgroundColor: '#006B3C', borderColor: '#006B3C' }}
+                  onClick={handleSaveAction}
+                  disabled={actionSubmitting}
+                >
+                  {actionSubmitting ? 'Saving...' : editingAction ? 'Update Action Taken' : 'Save Action Taken'}
                 </button>
               </div>
             </div>

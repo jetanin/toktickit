@@ -12,7 +12,7 @@ test.describe('E2E-03: IT Staff Ticket Lifecycle & Operational Workflow', () => 
     await page.locator('#password').fill('Password123!');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('table')).toBeVisible({ timeout: 15000 });
   });
 

@@ -37,7 +37,7 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ onSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (loading || !isFormValid) return;
 
     setError(null);
     setLoading(true);

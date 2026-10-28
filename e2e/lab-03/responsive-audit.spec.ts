@@ -205,6 +205,11 @@ test.describe('Responsive Audit: Administrator User Management', () => {
   });
 
   test('Item 5: Sole-Active-Administrator Guard (BR-25) at Mobile (375px) and Tablet (768px)', async ({ page }) => {
+    const actualUsers = await (await page.request.get('/api/admin/users')).json();
+    const marcus = actualUsers.find((user: { email: string }) => user.email === 'admin2@toktick.it');
+    const sarah = actualUsers.find((user: { email: string }) => user.email === 'sarah.it@toktick.it');
+    expect(marcus).toBeTruthy();
+    expect(sarah).toBeTruthy();
     for (const width of [375, 768]) {
       await page.setViewportSize({ width, height: 812 });
       await page.waitForTimeout(300);
@@ -213,7 +218,7 @@ test.describe('Responsive Audit: Administrator User Management', () => {
       await page.route('**/api/admin/users*', async (route) => {
         const mockSoleAdminList = [
           {
-            id: 2,
+            id: marcus.id,
             name: 'Marcus Reed',
             email: 'admin2@toktick.it',
             role: 'ADMINISTRATOR',
@@ -222,7 +227,7 @@ test.describe('Responsive Audit: Administrator User Management', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 3,
+            id: sarah.id,
             name: 'Sarah Jenkins',
             email: 'sarah.it@toktick.it',
             role: 'IT_STAFF',
@@ -294,7 +299,7 @@ test.describe('Responsive Audit: IT Staff Ticket Queue (Tablet 6-Column & Collap
     await page.getByRole('button', { name: /sign in/i }).click();
 
     // Verify queue is loaded
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
   });
 
   test('Tablet width (768px, 900px, 991px) - 6 columns visible, 4 hidden, collapsed filters button, zero horizontal scroll', async ({ page }) => {
