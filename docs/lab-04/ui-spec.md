@@ -33,7 +33,7 @@ TokTickIT preserves and extends the unified **Zen Green** enterprise design lang
 | **Ticket Status** | `Resolved`              | `#EAF6EF`  | `#006B3C`  | `#C3E6D5` | Work complete, resolution recorded |
 | **Ticket Status** | `Closed`                | `#F4F5F7`  | `#42526E`  | `#DFE1E6` | Final administrative closure       |
 | **Ticket Status** | `Reopened`              | `#FFEBE6`  | `#BF2600`  | `#FFBDAD` | Reopened due to recurring issue    |
-| **Ticket Status** | `Cancelled`             | `#F4F5F7`  | `#8993A4`  | `#DFE1E6` | Voided request (terminal)          |
+| **Ticket Status** | `Cancelled`             | `#F4F5F7`  | `#61756C`  | `#DFE1E6` | Voided request (terminal); AA contrast |
 | **IT Priority**   | `Low`                   | `#EAF6EF`  | `#0B7A46`  | `#C3E6D5` | Minor business impact              |
 | **IT Priority**   | `Medium`                | `#FEF8E7`  | `#8A6D00`  | `#FCEBB8` | Standard operational priority      |
 | **IT Priority**   | `High`                  | `#FCE8E6`  | `#C5221F`  | `#F7BDB8` | Significant operational impact     |
@@ -312,6 +312,8 @@ Positioned prominently within the Ticket Detail screen as a dedicated section be
 
 ### 4.1 Completed Audit Verification Records
 
+2026-10-28: automated axe-core audits now cover all three role dashboards plus Ticket Detail and the Actions Taken dialog. Dialog keyboard tests verify initial focus, Tab/Shift+Tab containment, Escape dismissal and return focus. Dashboard routes `/requester/dashboard`, `/staff/dashboard`, and `/admin/dashboard` are addressable and retain the existing session checks. Metric cards use 4/2/1 columns at desktop/tablet/mobile; the operational dashboard has a split recent-tickets/quick-actions layout. See [compliance-review.md](compliance-review.md) for execution evidence.
+
 | Screen / Component              | Viewports Tested     | Keyboard Focus |             Non-Color Cues             |       Zero Horizontal Overflow / Clipping       | Touch Targets ≥44px |  Status  |
 | :------------------------------ | :------------------- | :------------: | :------------------------------------: | :---------------------------------------------: | :-----------------: | :------: |
 | **Login & Password Change**     | 375px, 768px, 1280px |      Pass      |  Pass (explicit labels + helper text)  |        Pass (clean centered card reflow)        |        Pass         | **PASS** |
@@ -321,3 +323,6 @@ Positioned prominently within the Ticket Detail screen as a dedicated section be
 | **Ticket Detail & Workflow**    | 375px, 768px, 1280px |      Pass      |  Pass (status matrix text + banners)   |  Pass (responsive 2-col to 1-col grid reflow)   |        Pass         | **PASS** |
 | **Actions Taken Modal & Table** | 375px, 768px, 1280px |      Pass      | Pass (badge text + follow-up callouts) | Pass (dialog constrained to viewport max-width) |        Pass         | **PASS** |
 | **Admin User Management**       | 375px, 768px, 1280px |      Pass      |    Pass (role chips + status text)     |     Pass (responsive action buttons + wrap)     |        Pass         | **PASS** |
+| **Requester Dashboard**        | 375px, 768px, 1280px | Pass | Pass (status/priority text) | Pass (stacked cards and wrapping lists) | Pass | **PASS** |
+| **IT Staff Dashboard**         | 375px, 768px, 1280px | Pass | Pass (status/priority text) | Pass (split desktop layout, stacked mobile) | Pass | **PASS** |
+| **Administrator Dashboard**    | 375px, 768px, 1280px | Pass | Pass (metrics and role labels) | Pass (wrapping governance summary) | Pass | **PASS** |

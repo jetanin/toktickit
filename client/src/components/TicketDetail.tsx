@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { Requester } from '../types';
+import type { Requester, ActionTakenItem } from '../types';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface AttachmentItem {
   id: number;
@@ -162,6 +163,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
   const [actionAttachmentNotes, setActionAttachmentNotes] = useState('');
   const [actionFormError, setActionFormError] = useState<string | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  useDialogFocus(showActionModal || showStaffResolutionModal || showResolveModal || removeTargetId !== null);
 
   useEffect(() => {
     fetchTicketDetail();
@@ -174,8 +176,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId, isStaffOrAdmin]);
 
-  const fetchTicketDetail = async () => {
-    setLoading(true);
+  const fetchTicketDetail = async (preserveDraft = false) => {
+    if (!preserveDraft) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/tickets/${ticketId}`);
@@ -187,7 +189,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
       const data = await res.json();
       setTicket(data);
       setTargetStatus((prev) => (prev && prev !== data.currentStatus ? prev : data.currentStatus));
-      if (data.resolutionSummary) {
+      if (!preserveDraft && data.resolutionSummary) {
         setResolutionSummaryInput(data.resolutionSummary);
       }
     } catch (err: any) {
@@ -358,6 +360,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
     try {
       if (editingAction) {
         const payload: any = {
+          version: ticket?.version,
+          actionDateTime: new Date(actionDateTime).toISOString(),
           description: actionDescription.trim(),
           result: actionResult.trim(),
           status: actionStatus,
@@ -377,12 +381,19 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           body: JSON.stringify(payload),
         });
 
+        if (res.status === 409) {
+          setConcurrencyConflict(true);
+          await fetchTicketDetail(true);
+          return;
+        }
+
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
           throw new Error(json.error || 'Failed to update action taken.');
         }
       } else {
         const payload: any = {
+          version: ticket?.version,
           description: actionDescription.trim(),
           result: actionResult.trim(),
           status: actionStatus || 'Completed',
@@ -403,14 +414,22 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           body: JSON.stringify(payload),
         });
 
+        if (res.status === 409) {
+          setConcurrencyConflict(true);
+          await fetchTicketDetail(true);
+          return;
+        }
+
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
           throw new Error(json.error || 'Failed to record action taken.');
         }
       }
 
-      closeActionModal();
+      setShowActionModal(false);
+      setEditingAction(null);
       await fetchActionsTaken();
+      await fetchTicketDetail(true);
     } catch (err: any) {
       setActionFormError(err.message || 'An error occurred while saving the action taken.');
     } finally {
@@ -518,8 +537,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
 
       if (res.status === 409) {
         setConcurrencyConflict(true);
-        setShowStaffResolutionModal(false);
-        await fetchTicketDetail();
+        await fetchTicketDetail(true);
         return;
       }
 
@@ -1368,8 +1386,8 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
             {/* Tab Navigation Header (IT Staff & Administrator) */}
             {isStaffOrAdmin && (
               <div className="card-header bg-white border-bottom p-0">
-                <ul className="nav nav-tabs border-0 px-3 pt-2" role="tablist">
-                  <li className="nav-item" role="presentation">
+                <ul className="nav nav-tabs border-0 px-3 pt-2" aria-label="Ticket communication">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -1385,7 +1403,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   </li>
 
                   {/* Internal Notes Tab: ONLY rendered for IT Staff and Administrator per BR-04, BR-20, AC-04 */}
-                  <li className="nav-item" role="presentation">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -1401,7 +1419,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   </li>
 
                   {/* Attachments Tab for Tablet/Mobile or unified view */}
-                  <li className="nav-item" role="presentation">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className={`nav-link border-0 fw-semibold px-3 py-2 ${
@@ -1417,7 +1435,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
                   </li>
 
                   {/* Service Actions Tab: Disabled placeholder preserved for Lab 3 regression compatibility */}
-                  <li className="nav-item" role="presentation">
+                  <li className="nav-item" >
                     <button
                       type="button"
                       className="nav-link border-0 fw-semibold px-3 py-2 text-muted"
@@ -1906,6 +1924,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
           role="dialog"
           aria-modal="true"
+          aria-label="Remove Attachment"
         >
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow">
@@ -1996,6 +2015,7 @@ const TicketDetail: React.FC<Props> = ({ requester, currentUser, ticketId, onBac
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
           role="dialog"
           aria-modal="true"
+          aria-label="Problem Appears Resolved"
         >
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow">

@@ -148,6 +148,19 @@ Vite จะเปิด dev server ขึ้นมา ปกติจะรั�
 
 ## วิธีรันเทส (Testing & Verification)
 
+ผลตรวจสเปก Lab 4 และหลักฐานล่าสุด: [Compliance Review](docs/lab-04/compliance-review.md)
+
+ใช้ PostgreSQL บน Docker และตั้ง `DATABASE_URL` ให้ชี้ฐานข้อมูลทดสอบที่รัน migration และ seed แล้ว
+Playwright ใช้พอร์ตเดิม: Backend `http://localhost:3001` และ Frontend `http://localhost:5173`
+โดยเปิด dev servers ให้อัตโนมัติ หรือใช้ servers ที่เปิดอยู่แล้วบนพอร์ตเหล่านี้
+หากเปิด servers เอง ให้ Backend ใช้ `DATABASE_URL` เดียวกับชุดทดสอบ
+
+หากเคยเปิดโหมดพอร์ตแยกใน PowerShell ให้ปิดก่อนรัน tests:
+
+```powershell
+$env:E2E_ISOLATED = '0'
+```
+
 ### รันทุกชุดการทดสอบจาก root directory
 
 ```bash
@@ -180,7 +193,10 @@ npm test -- --run
 
 ```bash
 # รัน E2E baseline สำหรับ Lab 3 และ Lab 4 workflows
-npx playwright test e2e/lab-03
+npx playwright test e2e/lab-03 e2e/lab-04
+
+# รันเฉพาะ Lab 4
+npm run test:e2e:lab4
 ```
 
 ---

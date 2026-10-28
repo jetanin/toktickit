@@ -3,12 +3,17 @@ import { prisma } from '../app';
 import { requireRole } from '../middleware/auth';
 import type { Role } from '../../generated/prisma/client';
 import { formatTicket, parseStatus, parsePriority, mapStatus, mapPriority, formatActionTaken, parseActionStatus } from '../utils/format';
-import { isValidTransition } from '../utils/statusTransitions';
+import { checkConcurrency, handleConcurrentWrite } from '../utils/concurrency';
+import { isValidTransition, validateResolutionGate } from '../utils/statusTransitions';
 
 const router = Router();
 
 // Staff routes are restricted to IT_STAFF and ADMINISTRATOR
 router.use(requireRole('IT_STAFF' as Role, 'ADMINISTRATOR' as Role));
+router.use((req, _res, next) => {
+  if (req.method === 'POST' || req.method === 'PATCH') req.body ??= {};
+  next();
+});
 
 // GET /api/staff/assignees - list active IT Staff & Administrator users for assignment
 router.get('/assignees', async (_req: Request, res: Response): Promise<void> => {
@@ -101,7 +106,8 @@ router.get('/tickets', async (req: Request, res: Response): Promise<void> => {
     // Status filter
     if (status && typeof status === 'string') {
       const statusMapped = parseStatus(status);
-      if (statusMapped) where.currentStatus = statusMapped;
+      if (statusMapped === 'ACTIVE') where.currentStatus = { in: ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_FOR_REQUESTER', 'REOPENED'] };
+      else if (statusMapped) where.currentStatus = statusMapped;
     }
 
     // Assignment filter: all, unassigned, me
@@ -155,8 +161,8 @@ router.get('/tickets', async (req: Request, res: Response): Promise<void> => {
 const handleAssignOwner = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
-    const ticketId = parseInt(req.params.id, 10);
-    if (isNaN(ticketId)) {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId < 1) {
       res.status(400).json({ error: 'Invalid ticket id' });
       return;
     }
@@ -170,14 +176,14 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
     if (ticketOwnerId === null || ownerId === null) {
       targetOwnerId = null;
     } else if (ticketOwnerId !== undefined) {
-      targetOwnerId = parseInt(ticketOwnerId, 10);
+      targetOwnerId = Number(ticketOwnerId);
     } else if (ownerId !== undefined) {
-      targetOwnerId = parseInt(ownerId, 10);
+      targetOwnerId = Number(ownerId);
     } else {
       targetOwnerId = user.id; // self-claim
     }
 
-    if (targetOwnerId !== null && isNaN(targetOwnerId)) {
+    if (targetOwnerId !== null && (!Number.isInteger(targetOwnerId) || targetOwnerId < 1)) {
       res.status(400).json({ error: 'Invalid owner id' });
       return;
     }
@@ -209,20 +215,7 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    // Concurrency check (BR-12 / AC-07)
-    if (req.body && req.body.version !== undefined) {
-      const reqVersion = Number(req.body.version);
-      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
-        res.status(409).json({
-          error: 'Ticket has been modified by another user',
-          code: 'CONCURRENCY_CONFLICT',
-          currentVersion: ticket.version,
-          version: ticket.version,
-          ticket: formatTicket(ticket),
-        });
-        return;
-      }
-    }
+    if (!checkConcurrency(req, res, ticket)) return;
 
     // Business Behavior (BR-12):
     // If ticket status is NEW and being assigned to a user, auto-transition to OPEN
@@ -235,7 +228,7 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
     }
 
     const updated = await prisma.ticket.update({
-      where: { id: ticketId },
+      where: { id: ticketId, version: ticket.version },
       data: updateData,
       include: {
         ticketOwner: {
@@ -253,6 +246,7 @@ const handleAssignOwner = async (req: Request, res: Response): Promise<void> => 
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
+    if (await handleConcurrentWrite(err, req, res)) return;
     console.error('Assign owner error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -265,8 +259,8 @@ router.patch('/tickets/:id/assign', handleAssignOwner);
 // 6.3 PATCH /api/staff/tickets/:id/priority
 router.patch('/tickets/:id/priority', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ticketId = parseInt(req.params.id, 10);
-    if (isNaN(ticketId)) {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId < 1) {
       res.status(400).json({ error: 'Invalid ticket id' });
       return;
     }
@@ -291,23 +285,10 @@ router.patch('/tickets/:id/priority', async (req: Request, res: Response): Promi
       return;
     }
 
-    // Concurrency check (BR-12 / AC-07)
-    if (req.body && req.body.version !== undefined) {
-      const reqVersion = Number(req.body.version);
-      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
-        res.status(409).json({
-          error: 'Ticket has been modified by another user',
-          code: 'CONCURRENCY_CONFLICT',
-          currentVersion: ticket.version,
-          version: ticket.version,
-          ticket: formatTicket(ticket),
-        });
-        return;
-      }
-    }
+    if (!checkConcurrency(req, res, ticket)) return;
 
     const updated = await prisma.ticket.update({
-      where: { id: ticketId },
+      where: { id: ticketId, version: ticket.version },
       data: {
         itPriority: parsed as any,
         version: { increment: 1 },
@@ -321,6 +302,7 @@ router.patch('/tickets/:id/priority', async (req: Request, res: Response): Promi
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
+    if (await handleConcurrentWrite(err, req, res)) return;
     console.error('Update priority error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -329,8 +311,8 @@ router.patch('/tickets/:id/priority', async (req: Request, res: Response): Promi
 // 6.4 PATCH /api/staff/tickets/:id/status
 router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ticketId = parseInt(req.params.id, 10);
-    if (isNaN(ticketId)) {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId < 1) {
       res.status(400).json({ error: 'Invalid ticket id' });
       return;
     }
@@ -355,20 +337,7 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       return;
     }
 
-    // Concurrency check (BR-12 / AC-07)
-    if (req.body && req.body.version !== undefined) {
-      const reqVersion = Number(req.body.version);
-      if (isNaN(reqVersion) || ticket.version !== reqVersion) {
-        res.status(409).json({
-          error: 'Ticket has been modified by another user',
-          code: 'CONCURRENCY_CONFLICT',
-          currentVersion: ticket.version,
-          version: ticket.version,
-          ticket: formatTicket(ticket),
-        });
-        return;
-      }
-    }
+    if (!checkConcurrency(req, res, ticket)) return;
 
     // Enforce BR-15 (BR-09) status transition matrix
     if (!isValidTransition(ticket.currentStatus, nextParsed)) {
@@ -384,20 +353,12 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
     // 2. At least one recorded ActionTaken record belonging to the ticket.
     // Universally enforced for all callers, regardless of whether version is provided.
     if (nextParsed === 'RESOLVED') {
-      const summaryValid =
-        resolutionSummary &&
-        typeof resolutionSummary === 'string' &&
-        resolutionSummary.trim().length >= 1 &&
-        resolutionSummary.trim().length <= 1000;
-
       const actionCount = await prisma.actionTaken.count({
         where: { ticketId },
       });
-
-      if (actionCount < 1 || !summaryValid) {
-        res.status(400).json({
-          error: 'Cannot resolve ticket: At least one Action Taken and a non-empty resolution summary are required.',
-        });
+      const gate = validateResolutionGate(actionCount, resolutionSummary);
+      if (!gate.valid) {
+        res.status(400).json({ error: gate.error });
         return;
       }
     }
@@ -406,13 +367,14 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       currentStatus: nextParsed,
       version: { increment: 1 },
     };
+    if (nextParsed === 'REOPENED') updateData.requesterResolutionPending = false;
     if (nextParsed === 'RESOLVED' && resolutionSummary) {
       updateData.resolutionSummary = resolutionSummary.trim();
       updateData.requesterResolutionPending = false;
     }
 
     const updated = await prisma.ticket.update({
-      where: { id: ticketId },
+      where: { id: ticketId, version: ticket.version },
       data: updateData,
     });
 
@@ -425,6 +387,7 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
+    if (await handleConcurrentWrite(err, req, res)) return;
     console.error('Update status error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -438,8 +401,8 @@ router.patch('/tickets/:id/status', async (req: Request, res: Response): Promise
 router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
-    const ticketId = parseInt(req.params.id, 10);
-    if (isNaN(ticketId)) {
+    const ticketId = Number(req.params.id);
+    if (!Number.isInteger(ticketId) || ticketId < 1) {
       res.status(400).json({ error: 'Invalid ticket id' });
       return;
     }
@@ -451,6 +414,8 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
       res.status(404).json({ error: 'Ticket not found' });
       return;
     }
+
+    if (!checkConcurrency(req, res, ticket)) return;
 
     const {
       description,
@@ -488,8 +453,8 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
     // Validate assigneeId (defaults to authenticated caller)
     let finalAssigneeId = user.id;
     if (assigneeId !== undefined && assigneeId !== null) {
-      const parsedAssigneeId = parseInt(assigneeId, 10);
-      if (isNaN(parsedAssigneeId)) {
+      const parsedAssigneeId = assigneeId;
+      if (typeof parsedAssigneeId !== 'number' || !Number.isInteger(parsedAssigneeId) || parsedAssigneeId <= 0) {
         res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
         return;
       }
@@ -519,7 +484,11 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
     }
 
     // Validate follow-up coupling (follow-up note mandatory if follow-up required)
-    const followUpFlag = Boolean(isFollowUpRequired);
+    if (isFollowUpRequired !== undefined && typeof isFollowUpRequired !== 'boolean') {
+      res.status(400).json({ error: 'Follow-up required must be a boolean' });
+      return;
+    }
+    const followUpFlag = isFollowUpRequired ?? false;
     let finalFollowUpNote: string | null = null;
     if (followUpFlag) {
       if (
@@ -546,7 +515,11 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
 
     // Validate actionDateTime
     let finalActionDateTime = new Date();
-    if (actionDateTime) {
+    if (actionDateTime !== undefined) {
+      if (typeof actionDateTime !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(actionDateTime)) {
+        res.status(400).json({ error: 'Invalid action date/time format' });
+        return;
+      }
       const parsedDate = new Date(actionDateTime);
       if (isNaN(parsedDate.getTime())) {
         res.status(400).json({ error: 'Invalid action date/time format' });
@@ -555,31 +528,35 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
       finalActionDateTime = parsedDate;
     }
 
-    const created = await prisma.actionTaken.create({
-      data: {
-        ticketId,
-        actionDateTime: finalActionDateTime,
-        description: description.trim(),
-        result: result.trim(),
-        performedById: user.id, // Strictly auto-attributed to authenticated caller
-        assigneeId: finalAssigneeId,
-        status: finalStatus,
-        isFollowUpRequired: followUpFlag,
-        followUpNote: finalFollowUpNote,
-        attachmentNotes: finalAttachmentNotes,
-      },
-      include: {
-        performedBy: {
-          select: { id: true, name: true, email: true, role: true },
+    const created = await prisma.$transaction(async tx => {
+      await tx.ticket.update({ where: { id: ticketId, version: ticket.version }, data: { version: { increment: 1 } } });
+      return tx.actionTaken.create({
+        data: {
+          ticketId,
+          actionDateTime: finalActionDateTime,
+          description: description.trim(),
+          result: result.trim(),
+          performedById: user.id, // Strictly auto-attributed to authenticated caller
+          assigneeId: finalAssigneeId,
+          status: finalStatus,
+          isFollowUpRequired: followUpFlag,
+          followUpNote: finalFollowUpNote,
+          attachmentNotes: finalAttachmentNotes,
         },
-        assignee: {
-          select: { id: true, name: true, email: true, role: true },
+        include: {
+          performedBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          assignee: {
+            select: { id: true, name: true, email: true, role: true },
+          },
         },
-      },
+      });
     });
 
     res.status(201).json(formatActionTaken(created));
   } catch (err) {
+    if (await handleConcurrentWrite(err, req, res)) return;
     console.error('Create action taken error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -588,9 +565,9 @@ router.post('/tickets/:id/actions-taken', async (req: Request, res: Response): P
 // 2.3 GET /api/staff/tickets/:id/actions-taken/:actionId
 router.get('/tickets/:id/actions-taken/:actionId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ticketId = parseInt(req.params.id, 10);
-    const actionId = parseInt(req.params.actionId, 10);
-    if (isNaN(ticketId) || isNaN(actionId)) {
+    const ticketId = Number(req.params.id);
+    const actionId = Number(req.params.actionId);
+    if (!Number.isInteger(ticketId) || ticketId < 1 || !Number.isInteger(actionId) || actionId < 1) {
       res.status(400).json({ error: 'Invalid ticket id or action id' });
       return;
     }
@@ -622,9 +599,9 @@ router.get('/tickets/:id/actions-taken/:actionId', async (req: Request, res: Res
 // 2.4 PATCH /api/staff/tickets/:id/actions-taken/:actionId
 router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ticketId = parseInt(req.params.id, 10);
-    const actionId = parseInt(req.params.actionId, 10);
-    if (isNaN(ticketId) || isNaN(actionId)) {
+    const ticketId = Number(req.params.id);
+    const actionId = Number(req.params.actionId);
+    if (!Number.isInteger(ticketId) || ticketId < 1 || !Number.isInteger(actionId) || actionId < 1) {
       res.status(400).json({ error: 'Invalid ticket id or action id' });
       return;
     }
@@ -637,6 +614,9 @@ router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: R
       return;
     }
 
+    const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+    if (!checkConcurrency(req, res, ticket)) return;
+
     const {
       description,
       result,
@@ -648,6 +628,14 @@ router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: R
     } = req.body;
 
     const dataToUpdate: any = {};
+    if (req.body.actionDateTime !== undefined) {
+      const value = req.body.actionDateTime;
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value))) {
+        res.status(400).json({ error: 'Invalid action date/time format' });
+        return;
+      }
+      dataToUpdate.actionDateTime = new Date(value);
+    }
 
     if (description !== undefined) {
       if (typeof description !== 'string' || description.trim().length === 0 || description.trim().length > 1000) {
@@ -669,8 +657,8 @@ router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: R
       if (assigneeId === null) {
         dataToUpdate.assigneeId = null;
       } else {
-        const parsedAssigneeId = parseInt(assigneeId, 10);
-        if (isNaN(parsedAssigneeId)) {
+        const parsedAssigneeId = assigneeId;
+        if (typeof parsedAssigneeId !== 'number' || !Number.isInteger(parsedAssigneeId) || parsedAssigneeId <= 0) {
           res.status(400).json({ error: 'Target assignee must be an active IT Staff or Administrator user.' });
           return;
         }
@@ -699,7 +687,11 @@ router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: R
     }
 
     // Follow-up evaluation
-    const effectiveFollowUp = isFollowUpRequired !== undefined ? Boolean(isFollowUpRequired) : existing.isFollowUpRequired;
+    if (isFollowUpRequired !== undefined && typeof isFollowUpRequired !== 'boolean') {
+      res.status(400).json({ error: 'Follow-up required must be a boolean' });
+      return;
+    }
+    const effectiveFollowUp = isFollowUpRequired ?? existing.isFollowUpRequired;
     dataToUpdate.isFollowUpRequired = effectiveFollowUp;
 
     if (effectiveFollowUp) {
@@ -724,21 +716,25 @@ router.patch('/tickets/:id/actions-taken/:actionId', async (req: Request, res: R
       }
     }
 
-    const updated = await prisma.actionTaken.update({
-      where: { id: actionId },
-      data: dataToUpdate,
-      include: {
-        performedBy: {
-          select: { id: true, name: true, email: true, role: true },
+    const updated = await prisma.$transaction(async tx => {
+      await tx.ticket.update({ where: { id: ticketId, version: ticket.version }, data: { version: { increment: 1 } } });
+      return tx.actionTaken.update({
+        where: { id: actionId },
+        data: dataToUpdate,
+        include: {
+          performedBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          assignee: {
+            select: { id: true, name: true, email: true, role: true },
+          },
         },
-        assignee: {
-          select: { id: true, name: true, email: true, role: true },
-        },
-      },
+      });
     });
 
     res.status(200).json(formatActionTaken(updated));
   } catch (err) {
+    if (await handleConcurrentWrite(err, req, res)) return;
     console.error('Update action taken error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }

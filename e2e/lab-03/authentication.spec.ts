@@ -33,7 +33,7 @@ test.describe('E2E-01 & E2E-02: Authentication & Password Lifecycle', () => {
     await page.getByRole('button', { name: /sign in/i }).click();
 
     // Authenticated shell loads
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('banner').getByText('Sarah Jenkins')).toBeVisible();
     await expect(page.getByText('IT Staff', { exact: true })).toBeVisible();
 

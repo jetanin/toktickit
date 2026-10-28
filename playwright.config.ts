@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isolated = process.env.E2E_ISOLATED === '1';
+const apiPort = isolated ? 3002 : 3001;
+const clientPort = isolated ? 5174 : 5173;
+
 export default defineConfig({
   testDir: './e2e',
   workers: 1,
@@ -8,7 +12,8 @@ export default defineConfig({
     timeout: 5000,
   },
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${clientPort}`,
+    timezoneId: 'Asia/Bangkok',
     trace: 'on-first-retry',
   },
   projects: [
@@ -21,15 +26,17 @@ export default defineConfig({
     {
       command: 'npm run dev',
       cwd: './server',
-      port: 3001,
-      reuseExistingServer: true,
+      port: apiPort,
+      env: { PORT: String(apiPort) },
+      reuseExistingServer: !isolated,
       timeout: 120000,
     },
     {
-      command: 'npm run dev',
+      command: `npm run dev -- --port ${clientPort} --strictPort`,
       cwd: './client',
-      port: 5173,
-      reuseExistingServer: true,
+      port: clientPort,
+      env: { API_PROXY_TARGET: `http://127.0.0.1:${apiPort}` },
+      reuseExistingServer: !isolated,
       timeout: 120000,
     },
   ],

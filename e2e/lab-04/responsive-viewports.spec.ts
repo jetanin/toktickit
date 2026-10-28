@@ -40,7 +40,7 @@ test.describe('RESP-01: Responsive Viewports Audit (Mobile 375px, Tablet 768px, 
       if (await addActionBtn.isVisible()) {
         const box = await addActionBtn.boundingBox();
         expect(box).not.toBeNull();
-        expect(box!.height).toBeGreaterThanOrEqual(30);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
       }
     });
   }

@@ -65,7 +65,7 @@ test.describe('Authentication Busy State & Logout Guard Visual Tests', () => {
     await page.locator('button[type="submit"]').click();
 
     // 2. Confirm authenticated app shell
-    await expect(page.getByRole('heading', { name: 'Ticket Queue' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'IT Staff Ticket Queue' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('banner').getByText('Sarah Jenkins')).toBeVisible();
 
     // 3. Click Logout
